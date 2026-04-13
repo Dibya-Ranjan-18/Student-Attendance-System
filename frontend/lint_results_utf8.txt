@@ -1,0 +1,331 @@
+﻿
+D:\My Projects\SAS\frontend\src\pages\AdminDashboard.jsx
+    15:10  error    'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 no-unused-vars
+    25:13  error    'addNotification' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               no-unused-vars
+    25:30  error    'confirm' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       no-unused-vars
+    48:34  error    'Icon' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              no-unused-vars
+   116:22  error    Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+  114 |
+  115 |                 <nav className="flex-1 space-y-2">
+> 116 |                     <NavItem to="/admin" icon={LayoutDashboard} label="Dashboard" />
+      |                      ^^^^^^^ This component is created during render
+  117 |                     <NavItem to="/admin/requests" icon={UserPlus} label="Student Requests" />
+  118 |                     <NavItem to="/admin/students" icon={Users} label="Manage Students" />
+  119 |                     <NavItem to="/admin/academic" icon={GraduationCap} label="Academic Setup" />
+
+  46 |     }, []);
+  47 |
+> 48 |     const NavItem = ({ to, icon: Icon, label }) => {
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 49 |         const isActive = location.pathname === to;
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 50 |         return (
+     ΓÇª
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 74 |         );
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 75 |     };
+     | ^^^^^^ The component is created during render here
+  76 |
+  77 |     return (
+  78 |         <div className="min-h-screen text-slate-100 flex font-sans relative z-10">                                                                                                                                              react-hooks/static-components
+   117:22  error    Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+  115 |                 <nav className="flex-1 space-y-2">
+  116 |                     <NavItem to="/admin" icon={LayoutDashboard} label="Dashboard" />
+> 117 |                     <NavItem to="/admin/requests" icon={UserPlus} label="Student Requests" />
+      |                      ^^^^^^^ This component is created during render
+  118 |                     <NavItem to="/admin/students" icon={Users} label="Manage Students" />
+  119 |                     <NavItem to="/admin/academic" icon={GraduationCap} label="Academic Setup" />
+  120 |                     <NavItem to="/admin/attendance" icon={Calendar} label="Daily Attendance" />
+
+  46 |     }, []);
+  47 |
+> 48 |     const NavItem = ({ to, icon: Icon, label }) => {
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 49 |         const isActive = location.pathname === to;
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 50 |         return (
+     ΓÇª
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 74 |         );
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 75 |     };
+     | ^^^^^^ The component is created during render here
+  76 |
+  77 |     return (
+  78 |         <div className="min-h-screen text-slate-100 flex font-sans relative z-10">                                              react-hooks/static-components
+   118:22  error    Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+  116 |                     <NavItem to="/admin" icon={LayoutDashboard} label="Dashboard" />
+  117 |                     <NavItem to="/admin/requests" icon={UserPlus} label="Student Requests" />
+> 118 |                     <NavItem to="/admin/students" icon={Users} label="Manage Students" />
+      |                      ^^^^^^^ This component is created during render
+  119 |                     <NavItem to="/admin/academic" icon={GraduationCap} label="Academic Setup" />
+  120 |                     <NavItem to="/admin/attendance" icon={Calendar} label="Daily Attendance" />
+  121 |                     <NavItem to="/admin/holidays" icon={ShieldAlert} label="Holiday Setup" />
+
+  46 |     }, []);
+  47 |
+> 48 |     const NavItem = ({ to, icon: Icon, label }) => {
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 49 |         const isActive = location.pathname === to;
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 50 |         return (
+     ΓÇª
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 74 |         );
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 75 |     };
+     | ^^^^^^ The component is created during render here
+  76 |
+  77 |     return (
+  78 |         <div className="min-h-screen text-slate-100 flex font-sans relative z-10">   react-hooks/static-components
+   119:22  error    Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+  117 |                     <NavItem to="/admin/requests" icon={UserPlus} label="Student Requests" />
+  118 |                     <NavItem to="/admin/students" icon={Users} label="Manage Students" />
+> 119 |                     <NavItem to="/admin/academic" icon={GraduationCap} label="Academic Setup" />
+      |                      ^^^^^^^ This component is created during render
+  120 |                     <NavItem to="/admin/attendance" icon={Calendar} label="Daily Attendance" />
+  121 |                     <NavItem to="/admin/holidays" icon={ShieldAlert} label="Holiday Setup" />
+  122 |                     <NavItem to="/admin/location" icon={MapPin} label="Geofencing" />
+
+  46 |     }, []);
+  47 |
+> 48 |     const NavItem = ({ to, icon: Icon, label }) => {
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 49 |         const isActive = location.pathname === to;
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 50 |         return (
+     ΓÇª
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 74 |         );
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 75 |     };
+     | ^^^^^^ The component is created during render here
+  76 |
+  77 |     return (
+  78 |         <div className="min-h-screen text-slate-100 flex font-sans relative z-10">  react-hooks/static-components
+   120:22  error    Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+  118 |                     <NavItem to="/admin/students" icon={Users} label="Manage Students" />
+  119 |                     <NavItem to="/admin/academic" icon={GraduationCap} label="Academic Setup" />
+> 120 |                     <NavItem to="/admin/attendance" icon={Calendar} label="Daily Attendance" />
+      |                      ^^^^^^^ This component is created during render
+  121 |                     <NavItem to="/admin/holidays" icon={ShieldAlert} label="Holiday Setup" />
+  122 |                     <NavItem to="/admin/location" icon={MapPin} label="Geofencing" />
+  123 |                 </nav>
+
+  46 |     }, []);
+  47 |
+> 48 |     const NavItem = ({ to, icon: Icon, label }) => {
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 49 |         const isActive = location.pathname === to;
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 50 |         return (
+     ΓÇª
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 74 |         );
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 75 |     };
+     | ^^^^^^ The component is created during render here
+  76 |
+  77 |     return (
+  78 |         <div className="min-h-screen text-slate-100 flex font-sans relative z-10">                                                                         react-hooks/static-components
+   121:22  error    Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+  119 |                     <NavItem to="/admin/academic" icon={GraduationCap} label="Academic Setup" />
+  120 |                     <NavItem to="/admin/attendance" icon={Calendar} label="Daily Attendance" />
+> 121 |                     <NavItem to="/admin/holidays" icon={ShieldAlert} label="Holiday Setup" />
+      |                      ^^^^^^^ This component is created during render
+  122 |                     <NavItem to="/admin/location" icon={MapPin} label="Geofencing" />
+  123 |                 </nav>
+  124 |
+
+  46 |     }, []);
+  47 |
+> 48 |     const NavItem = ({ to, icon: Icon, label }) => {
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 49 |         const isActive = location.pathname === to;
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 50 |         return (
+     ΓÇª
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 74 |         );
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 75 |     };
+     | ^^^^^^ The component is created during render here
+  76 |
+  77 |     return (
+  78 |         <div className="min-h-screen text-slate-100 flex font-sans relative z-10">                                                                                                                                                                   react-hooks/static-components
+   122:22  error    Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+  120 |                     <NavItem to="/admin/attendance" icon={Calendar} label="Daily Attendance" />
+  121 |                     <NavItem to="/admin/holidays" icon={ShieldAlert} label="Holiday Setup" />
+> 122 |                     <NavItem to="/admin/location" icon={MapPin} label="Geofencing" />
+      |                      ^^^^^^^ This component is created during render
+  123 |                 </nav>
+  124 |
+  125 |                 <div className="mt-auto pt-6 border-t border-slate-800 space-y-2">
+
+  46 |     }, []);
+  47 |
+> 48 |     const NavItem = ({ to, icon: Icon, label }) => {
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 49 |         const isActive = location.pathname === to;
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 50 |         return (
+     ΓÇª
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 74 |         );
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 75 |     };
+     | ^^^^^^ The component is created during render here
+  76 |
+  77 |     return (
+  78 |         <div className="min-h-screen text-slate-100 flex font-sans relative z-10">                                                                                                                                                                                 react-hooks/static-components
+   158:41  error    'Icon' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              no-unused-vars
+   284:23  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  282 |         } catch { console.error("Failed to fetch requests"); }
+  283 |     };
+> 284 |     useEffect(() => { fetchRequests(); }, []);
+      |                       ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  285 |
+  286 |     const handleAction = async (id, action) => {
+  287 |         try {                                                                                                                                                                                                                                                                                                                                                                                                                                                                         react-hooks/set-state-in-effect
+   374:9   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  372 |
+  373 |     useEffect(() => {
+> 374 |         fetchStudents();
+      |         ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  375 |         fetchAcademic();
+  376 |     }, []);
+  377 |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       react-hooks/set-state-in-effect
+   390:13  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  388 |             fetchStudentStats();
+  389 |         } else {
+> 390 |             setStudentStats([]);
+      |             ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  391 |         }
+  392 |     }, [editingStudent]);
+  393 |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              react-hooks/set-state-in-effect
+   623:68  error    'Icon' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              no-unused-vars
+   748:22  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  746 |         } catch {console.error("Failed to fetch academic data"); }
+  747 |     };
+> 748 |     useEffect(() => {fetchData(); }, []);
+      |                      ^^^^^^^^^ Avoid calling setState() directly within an effect
+  749 |
+  750 |             return (
+  751 |             <div className="space-y-6 md:space-y-8 pb-20">                                                                                                                                                                                                                                                                                                                                                                                                                                                              react-hooks/set-state-in-effect
+   769:48  error    'locations' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         no-unused-vars
+   930:29  error    'confirm' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       no-unused-vars
+   957:22  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  955 |     };
+  956 |
+> 957 |     useEffect(() => {fetchAcademic(); }, []);
+      |                      ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  958 |     useEffect(() => {fetchAttendance(); }, [date, domain, branch, semester, subject]);
+  959 |
+  960 |     const handleUpdate = async (id, status) => {                                                                                                                                                                                                                                                                                                                                                                                                                                                                 react-hooks/set-state-in-effect
+   958:22  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  956 |
+  957 |     useEffect(() => {fetchAcademic(); }, []);
+> 958 |     useEffect(() => {fetchAttendance(); }, [date, domain, branch, semester, subject]);
+      |                      ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  959 |
+  960 |     const handleUpdate = async (id, status) => {
+  961 |         try {                                                                                                                                                                                                                                                                                                                                                                                                                                                        react-hooks/set-state-in-effect
+   958:44  warning  React Hook useEffect has a missing dependency: 'fetchAttendance'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            react-hooks/exhaustive-deps
+  1097:22  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  1095 |     };
+  1096 |
+> 1097 |     useEffect(() => {fetchHolidays(); }, []);
+       |                      ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  1098 |
+  1099 |     const handleAdd = async (e) => {
+  1100 |                     e.preventDefault();                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     react-hooks/set-state-in-effect
+  1214:24  error    'stats' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         no-unused-vars
+  1227:22  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  1225 |     };
+  1226 |
+> 1227 |     useEffect(() => {fetchLocations(); }, []);
+       |                      ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  1228 |
+  1229 |     const handleAdd = async (e) => {
+  1230 |                     e.preventDefault();                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   react-hooks/set-state-in-effect
+
+Γ£û 25 problems (24 errors, 1 warning)
+

@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary-50: #f0f9ff;
+  --color-primary-100: #e0f2fe;
+  --color-primary-200: #bae6fd;
+  --color-primary-300: #7dd3fc;
+  --color-primary-400: #38bdf8;
+  --color-primary-500: #0ea5e9;
+  --color-primary-600: #0284c7;
+  --color-primary-700: #0369a1;
+  --color-primary-800: #075985;
+  --color-primary-900: #0c4a6e;
+  --motion-ease: cubic-bezier(0.21, 0.47, 0.32, 0.98);
+  --motion-duration: 0.5s;
+}
+
+:root {
+  font-family: 'Outfit', 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.95);
+  background-color: #020617;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  min-width: 320px;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-color: #020617;
+}
+
+#root {
+  width: 100%;
+}
+
+@layer base {
+  body {
+    @apply bg-slate-950 text-slate-50;
+  }
+}
+
+/* Glassmorphism Utilities - Premium Motion Version */
+@layer components {
+  .glass-card {
+    @apply bg-slate-900/60 backdrop-blur-xl border border-white/5 shadow-2xl p-4 sm:p-6 md:p-8 rounded-3xl md:rounded-[2.5rem] transition-all duration-500 ease-[var(--motion-ease)];
+  }
+  
+  .glass-card:hover {
+    @apply border-white/20 bg-slate-900/80 shadow-primary-500/5 -translate-y-1 scale-[1.01];
+  }
+  
+  .glass-sidebar {
+    @apply bg-slate-900/80 backdrop-blur-2xl border-r border-white/5;
+  }
+  
+  .glass-input {
+    @apply bg-white/5 border border-white/10 focus:border-primary-500/50 backdrop-blur-md px-4 py-3 sm:py-4 rounded-xl md:rounded-2xl outline-none transition-all duration-300;
+  }
+
+  .glass-input:focus {
+    @apply bg-white/10 border-primary-500/40 shadow-lg shadow-primary-500/10;
+  }
+  
+  .glass-button-primary {
+    @apply bg-primary-600 hover:bg-primary-500 text-white backdrop-blur-md border border-white/10 shadow-lg px-6 py-3 sm:py-4 rounded-xl md:rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all duration-300 active:scale-95 hover:shadow-primary-600/30;
+  }
+
+  .hover-lift {
+    @apply transition-transform duration-500 ease-[var(--motion-ease)] hover:-translate-y-2 hover:scale-[1.02];
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-white/10 rounded-full hover:bg-white/20;
+}
+
+/* Global Interactive Cursors */
+button, a, select, [role="button"] {
+  cursor: pointer;
+}
+
+/* Custom Date Picker Styling */
+input[type="date"] {
+  color-scheme: dark;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  padding: 4px;
+  background-image: none;
+  display: none; 
+}
+
+/* Modern styling for the date input when focused */
+input[type="date"]:focus {
+  outline: none;
+  border-color: var(--color-primary-500);
+}
