@@ -8,17 +8,17 @@ export const NotificationProvider = ({ children }) => {
     const [notifications, setNotifications] = useState([]);
     const [confirmConfig, setConfirmConfig] = useState(null);
 
+    const removeNotification = useCallback((id) => {
+        setNotifications((prev) => prev.filter((n) => n.id !== id));
+    }, []);
+
     const addNotification = useCallback((message, type = 'info') => {
         const id = Math.random().toString(36).substr(2, 9);
         setNotifications((prev) => [...prev, { id, message, type }]);
         setTimeout(() => {
             removeNotification(id);
         }, 5000);
-    }, []);
-
-    const removeNotification = useCallback((id) => {
-        setNotifications((prev) => prev.filter((n) => n.id !== id));
-    }, []);
+    }, [removeNotification]);
 
     const confirm = useCallback((title, message) => {
         return new Promise((resolve) => {
@@ -38,7 +38,7 @@ export const NotificationProvider = ({ children }) => {
             {children}
             
             {/* Toasts Container */}
-            <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[9999] flex flex-col gap-3 pointer-events-none w-full max-w-[400px] items-center px-4">
+            <div className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-[9999] flex flex-col gap-2 sm:gap-3 pointer-events-none w-[calc(100%-2rem)] sm:w-full max-w-[360px] sm:max-w-[420px] items-center">
                 <AnimatePresence>
                     {notifications.map((n) => (
                         <Toast key={n.id} {...n} onClose={() => removeNotification(n.id)} />
@@ -75,18 +75,20 @@ const Toast = ({ message, type, onClose }) => {
 
     return (
         <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            initial={{ opacity: 0, y: -16, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.2 } }}
-            className={`pointer-events-auto flex items-center gap-4 p-4 rounded-2xl border backdrop-blur-xl shadow-2xl min-w-[320px] max-w-[400px] ${bgColors[type]} glass-card`}
+            exit={{ opacity: 0, y: -10, scale: 0.95 }}
+            transition={{ duration: 0.25, ease: [0.21, 0.47, 0.32, 0.98] }}
+            className={`pointer-events-auto w-full flex items-center gap-3 p-3 sm:p-4 rounded-xl border shadow-lg ${bgColors[type]}`}
         >
             <div className="flex-shrink-0">{icons[type]}</div>
-            <p className="text-sm font-semibold text-white flex-grow leading-tight">{message}</p>
+            <p className="text-xs sm:text-sm font-semibold text-white flex-grow leading-tight">{message}</p>
             <button 
                 onClick={onClose}
-                className="p-1 hover:bg-white/10 rounded-lg transition-colors text-slate-400 hover:text-white"
+                className="flex-shrink-0 p-1 hover:bg-white/10 rounded-lg transition-colors text-slate-400 hover:text-white"
             >
-                <X size={16} />
+                <X size={14} className="sm:hidden" />
+                <X size={16} className="hidden sm:block" />
             </button>
         </motion.div>
     );
@@ -94,22 +96,12 @@ const Toast = ({ message, type, onClose }) => {
 
 const ConfirmModal = ({ title, message, onConfirm, onCancel }) => {
     return (
-        <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[10000] flex items-center justify-center p-4"
-        >
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
             <div 
                 onClick={onCancel}
-                className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+                className="absolute inset-0 bg-slate-950/80"
             />
-            <motion.div 
-                initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                className="relative glass-card p-8 rounded-[2.5rem] shadow-2xl max-w-sm w-full text-center pointer-events-auto"
-            >
+            <div className="relative bg-slate-900 border border-slate-800 p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center pointer-events-auto">
                 <div className="w-16 h-16 bg-rose-500/10 rounded-3xl flex items-center justify-center text-rose-500 mx-auto mb-6">
                     <AlertTriangle size={32} />
                 </div>
@@ -130,8 +122,8 @@ const ConfirmModal = ({ title, message, onConfirm, onCancel }) => {
                         Keep This
                     </button>
                 </div>
-            </motion.div>
-        </motion.div>
+            </div>
+        </div>
     );
 };
 

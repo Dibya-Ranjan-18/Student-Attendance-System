@@ -46,10 +46,7 @@ export const AuthProvider = ({ children }) => {
             
             return { success: true };
         } catch (error) {
-            return { 
-                success: false, 
-                error: error.response?.data?.error || 'Login failed' 
-            };
+            throw error;
         }
     };
 
@@ -67,12 +64,7 @@ export const AuthProvider = ({ children }) => {
             
             return { success: true };
         } catch (error) {
-            return { 
-                success: false, 
-                error: error.response?.data?.error || 'Google Login failed',
-                email: error.response?.data?.email,
-                name: error.response?.data?.name
-            };
+            throw error;
         }
     };
 

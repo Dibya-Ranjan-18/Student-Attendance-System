@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, X, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const CustomDatePicker = ({ 
@@ -10,20 +11,57 @@ const CustomDatePicker = ({
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [viewDate, setViewDate] = useState(value ? new Date(value) : new Date());
-    const dropdownRef = useRef(null);
+    const [dropdownStyle, setDropdownStyle] = useState({});
+    const containerRef = useRef(null);
+    const buttonRef = useRef(null);
 
     // Ensure viewDate is valid
     const safeViewDate = isNaN(viewDate.getTime()) ? new Date() : viewDate;
 
+    const calculatePosition = () => {
+        if (!buttonRef.current) return;
+        const rect = buttonRef.current.getBoundingClientRect();
+        const dropWidth = window.innerWidth < 350 ? window.innerWidth - 32 : 320;
+        
+        let left = rect.left + (rect.width / 2) - (dropWidth / 2);
+        
+        // Boundaries
+        if (left < 16) left = 16;
+        if (left + dropWidth > window.innerWidth - 16) left = window.innerWidth - dropWidth - 16;
+
+        setDropdownStyle({
+            position: 'fixed',
+            top: `${rect.bottom + 8}px`,
+            left: `${left}px`,
+            width: `${dropWidth}px`,
+            zIndex: 9999
+        });
+    };
+
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+            if (
+                containerRef.current && !containerRef.current.contains(event.target) &&
+                !event.target.closest('[data-datepicker-dropdown]')
+            ) {
                 setIsOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    useEffect(() => {
+        if (isOpen) {
+            calculatePosition();
+            window.addEventListener('scroll', calculatePosition, { capture: true });
+            window.addEventListener('resize', calculatePosition);
+        }
+        return () => {
+            window.removeEventListener('scroll', calculatePosition, { capture: true });
+            window.removeEventListener('resize', calculatePosition);
+        };
+    }, [isOpen]);
 
     const daysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
     const firstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
@@ -62,7 +100,6 @@ const CustomDatePicker = ({
     };
 
     const handleDateSelect = (date) => {
-        // Format to YYYY-MM-DD to match the backend expectation
         const formattedDate = date.toLocaleDateString('en-CA');
         onChange(formattedDate);
         setIsOpen(false);
@@ -85,98 +122,103 @@ const CustomDatePicker = ({
                d.getDate() === today.getDate();
     };
 
+    const dropdownContent = (
+        <AnimatePresence>
+            {isOpen && (
+                <motion.div
+                    data-datepicker-dropdown
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                    style={dropdownStyle}
+                    className="bg-slate-900 border border-slate-700 rounded-[2rem] shadow-2xl overflow-hidden backdrop-blur-2xl"
+                >
+                    {/* Header */}
+                    <div className="p-4 md:p-5 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <span className="font-bold text-white uppercase tracking-tight text-sm md:text-base">
+                                {safeViewDate.toLocaleString('default', { month: 'long' })}
+                            </span>
+                            <span className="font-mono text-slate-500 font-bold text-xs md:text-sm">{safeViewDate.getFullYear()}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <button onClick={(e) => { e.stopPropagation(); handleMonthChange(-1); }} className="p-1.5 md:p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-all"><ChevronLeft size={16} /></button>
+                            <button onClick={(e) => { e.stopPropagation(); setViewDate(new Date()); }} className="text-[10px] font-bold uppercase text-primary-500 px-2 py-1 hover:bg-primary-500/10 rounded-md transition-all">Today</button>
+                            <button onClick={(e) => { e.stopPropagation(); handleMonthChange(1); }} className="p-1.5 md:p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-all"><ChevronRight size={16} /></button>
+                        </div>
+                    </div>
+
+                    {/* Calendar Grid */}
+                    <div className="p-3 md:p-4">
+                        <div className="grid grid-cols-7 mb-2 border-b border-white/5 pb-2">
+                            {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
+                                <div key={day} className="text-center text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">
+                                    {day}
+                                </div>
+                            ))}
+                        </div>
+                        <div className="grid grid-cols-7 gap-0.5 md:gap-1">
+                            {generateDays().map((item, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={(e) => { e.stopPropagation(); handleDateSelect(item.date); }}
+                                    className={`
+                                        relative h-8 md:h-10 w-full flex items-center justify-center rounded-xl text-[11px] md:text-xs font-bold transition-all group
+                                        ${!item.current ? 'text-slate-700 opacity-40' : 'text-slate-300 hover:bg-white/10 hover:text-white'}
+                                        ${isSelected(item.date) ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/20' : ''}
+                                        ${isToday(item.date) && !isSelected(item.date) ? 'bg-primary-500/10 text-primary-400 border border-primary-500/20' : ''}
+                                    `}
+                                >
+                                    <span className="relative z-10">{item.day}</span>
+                                    {isToday(item.date) && !isSelected(item.date) && (
+                                        <div className="absolute bottom-1 w-1 h-1 bg-primary-500 rounded-full" />
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="px-4 py-3 md:px-5 md:py-4 bg-white/5 flex items-center justify-between border-t border-white/5">
+                         <button onClick={() => setIsOpen(false)} className="text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-rose-500 transition-colors">Close</button>
+                         <div className="flex items-center gap-2 text-[9px] md:text-[10px] font-bold text-slate-600">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary-500" />
+                            <span>Selected</span>
+                         </div>
+                    </div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+    );
+
     return (
-        <div className="relative" ref={dropdownRef}>
+        <div className="w-full" ref={containerRef}>
             {label && (
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2 px-1">{label}</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2 px-1">{label}</span>
             )}
             
             <button
+                ref={buttonRef}
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
-                className={`w-full bg-slate-900 border border-slate-800 rounded-xl px-3 sm:px-4 py-2 text-white flex items-center gap-2 sm:gap-3 transition-all hover:bg-slate-800/50 hover:border-primary-500/30 ${isOpen ? 'border-primary-500 ring-4 ring-primary-500/10' : ''}`}
+                className={`w-full glass-input bg-white/5 border border-white/10 rounded-2xl px-4 py-3 flex items-center justify-between transition-all hover:border-white/20 ${isOpen ? 'border-primary-500/50 ring-4 ring-primary-500/10' : ''}`}
             >
-                <div className="w-8 h-8 bg-primary-600/10 rounded-lg flex items-center justify-center text-primary-500 shrink-0">
-                    <CalendarIcon size={16} className="sm:size-[18px]" />
-                </div>
-                <div className="flex flex-col leading-none text-left min-w-0 flex-1">
-                    <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-slate-500 mb-0.5 truncate">Date Range</span>
-                    <div className="flex items-baseline gap-1 truncate">
-                        <span className="text-xs sm:text-sm font-black text-white">
-                            {value ? new Date(value).getDate() : '--'}
-                        </span>
-                        <span className="text-[9px] sm:text-[10px] font-bold text-primary-400 uppercase truncate">
-                            {value ? new Date(value).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : placeholder}
+                <div className="flex items-center gap-3 truncate">
+                    <CalendarIcon size={16} className={value ? 'text-primary-500' : 'text-slate-500'} />
+                    <div className="flex flex-col text-left truncate">
+                        <span className={`text-xs md:text-sm font-bold ${value ? 'text-white' : 'text-slate-400'}`}>
+                            {value ? new Date(value).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : placeholder}
                         </span>
                     </div>
                 </div>
+                <ChevronDown 
+                    size={16} 
+                    className={`text-slate-500 transition-transform duration-300 shrink-0 ${isOpen ? 'rotate-180 text-primary-500' : ''}`} 
+                />
             </button>
 
-            <AnimatePresence>
-                {isOpen && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-                        className="absolute z-[110] mt-2 bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl overflow-hidden backdrop-blur-2xl w-[280px] xs:w-[320px] left-1/2 -translate-x-1/2 sm:left-0 sm:translate-x-0 md:left-auto md:right-0"
-                    >
-                        {/* Header */}
-                        <div className="p-5 border-b border-slate-800 bg-slate-800/20 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <span className="font-black text-white uppercase tracking-tight">
-                                    {safeViewDate.toLocaleString('default', { month: 'long' })}
-                                </span>
-                                <span className="font-mono text-slate-500 font-bold">{safeViewDate.getFullYear()}</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                                <button onClick={() => handleMonthChange(-1)} className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"><ChevronLeft size={18} /></button>
-                                <button onClick={() => setViewDate(new Date())} className="text-[10px] font-black uppercase text-primary-500 px-2 py-1 hover:bg-primary-500/10 rounded-md transition-all">Today</button>
-                                <button onClick={() => handleMonthChange(1)} className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"><ChevronRight size={18} /></button>
-                            </div>
-                        </div>
-
-                        {/* Calendar Grid */}
-                        <div className="p-4 overflow-hidden relative min-h-[280px]">
-                            <div className="grid grid-cols-7 mb-2 border-b border-slate-800/50 pb-2">
-                                {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
-                                    <div key={day} className="text-center text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
-                                        {day}
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="grid grid-cols-7 gap-1">
-                                {generateDays().map((item, idx) => (
-                                    <button
-                                        key={idx}
-                                        onClick={() => handleDateSelect(item.date)}
-                                        className={`
-                                            relative h-9 xs:h-10 w-full flex items-center justify-center rounded-xl text-xs font-bold transition-all group
-                                            ${!item.current ? 'text-slate-700' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}
-                                            ${isSelected(item.date) ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/20 active:scale-95' : ''}
-                                            ${isToday(item.date) && !isSelected(item.date) ? 'bg-primary-600/5 text-primary-400 border border-primary-500/20' : ''}
-                                        `}
-                                    >
-                                        <span className="relative z-10">{item.day}</span>
-                                        {isToday(item.date) && !isSelected(item.date) && (
-                                            <div className="absolute bottom-1 w-1 h-1 bg-primary-500 rounded-full" />
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Footer */}
-                        <div className="px-5 py-4 bg-slate-950/50 flex items-center justify-between border-t border-slate-800">
-                             <button onClick={() => setIsOpen(false)} className="text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-rose-500 transition-colors">Close Picker</button>
-                             <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
-                                <span className="w-2 h-2 rounded-full bg-primary-500" />
-                                <span>Selected</span>
-                             </div>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {createPortal(dropdownContent, document.body)}
         </div>
     );
 };

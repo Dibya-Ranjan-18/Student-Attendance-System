@@ -7,23 +7,22 @@ export const LoadingProvider = ({ children }) => {
     const [isLoading, setIsLoading] = useState(false);
     const activeRequests = useRef(0);
 
-    const loaderTimer = useRef(null);
-
     const showLoading = useCallback(() => {
         activeRequests.current += 1;
+        setIsLoading(true);
     }, []);
 
     const hideLoading = useCallback(() => {
         activeRequests.current = Math.max(0, activeRequests.current - 1);
-        
         if (activeRequests.current === 0) {
-            if (loaderTimer.current) {
-                clearTimeout(loaderTimer.current);
-                loaderTimer.current = null;
-            }
-            setIsLoading(false);
+            // Tiny delay to prevent flickering
+            setTimeout(() => {
+                if (activeRequests.current === 0) {
+                    setIsLoading(false);
+                }
+            }, 200);
         }
-    }, [setIsLoading]);
+    }, []);
 
     useEffect(() => {
         const requestInterceptor = api.interceptors.request.use(

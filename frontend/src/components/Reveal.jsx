@@ -29,11 +29,11 @@ const Reveal = ({
     );
 };
 
-export const RevealList = ({ children, delay = 0, interval = 0.1 }) => {
+export const RevealList = ({ children, delay = 0, interval = 0.1, width = "fit-content" }) => {
     return (
         <>
             {React.Children.map(children, (child, i) => (
-                <Reveal delay={delay + (i * interval)}>
+                <Reveal delay={delay + (i * interval)} width={width}>
                     {child}
                 </Reveal>
             ))}
