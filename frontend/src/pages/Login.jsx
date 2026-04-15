@@ -125,7 +125,8 @@ const Login = () => {
                   </div>
 
                   <div className="grid grid-cols-1 gap-4">
-                    <div className="flex justify-center transition-transform active:scale-95">
+                    {/* Force light color-scheme so Google's iframe renders white background in dark mode browsers */}
+                    <div className="flex justify-center transition-transform active:scale-95" style={{ colorScheme: 'light' }}>
                       <GoogleLogin
                         onSuccess={async credentialResponse => {
                           try {
