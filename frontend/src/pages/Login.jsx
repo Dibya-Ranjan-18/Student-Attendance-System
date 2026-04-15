@@ -137,7 +137,7 @@ const Login = () => {
                         onError={() => {
                           setError("Google Login Failed");
                         }}
-                        theme="filled_black"
+                        theme="outline"
                         shape="pill"
                         size="large"
                         text="continue_with"
