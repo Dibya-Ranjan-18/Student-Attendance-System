@@ -174,11 +174,12 @@ const Register = () => {
                             <p className="text-[10px] font-bold tracking-[0.3em] text-blue-500/80 mb-2">Step 01 · Auth Gateway</p>
                             <p className="text-slate-400 text-xs md:text-sm max-w-xs mx-auto mb-10 font-medium">Please verify your institutional identity first.</p>
 
-                            <div className="flex justify-center transition-transform active:scale-95 px-4">
+                            {/* Force light color-scheme so Google's iframe renders white background in dark mode browsers */}
+                            <div className="flex justify-center transition-transform active:scale-95 px-4" style={{ colorScheme: 'light' }}>
                                 <GoogleLogin
                                     onSuccess={handleGoogleSuccess}
                                     onError={() => addNotification("Google access denied", "error")}
-                                    theme="filled_black"
+                                    theme="outline"
                                     shape="pill"
                                     size="large"
                                     text="continue_with"
