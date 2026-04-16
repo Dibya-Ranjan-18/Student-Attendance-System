@@ -21,7 +21,7 @@ const CustomDatePicker = ({
     const calculatePosition = () => {
         if (!buttonRef.current) return;
         const rect = buttonRef.current.getBoundingClientRect();
-        const dropWidth = window.innerWidth < 350 ? window.innerWidth - 32 : 320;
+        const dropWidth = window.innerWidth < 350 ? window.innerWidth - 32 : 240;
         
         let left = rect.left + (rect.width / 2) - (dropWidth / 2);
         
@@ -135,36 +135,36 @@ const CustomDatePicker = ({
                     className="bg-slate-900 border border-slate-700 rounded-[2rem] shadow-2xl overflow-hidden backdrop-blur-2xl"
                 >
                     {/* Header */}
-                    <div className="p-4 md:p-5 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                    <div className="p-2 md:p-2.5 border-b border-white/5 bg-white/5 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <span className="font-bold text-white uppercase tracking-tight text-sm md:text-base">
+                            <span className="font-bold text-white uppercase tracking-tight text-[10px] md:text-xs">
                                 {safeViewDate.toLocaleString('default', { month: 'long' })}
                             </span>
-                            <span className="font-mono text-slate-500 font-bold text-xs md:text-sm">{safeViewDate.getFullYear()}</span>
+                            <span className="font-mono text-slate-500 font-bold text-[9px] md:text-[10px]">{safeViewDate.getFullYear()}</span>
                         </div>
                         <div className="flex items-center gap-1">
-                            <button onClick={(e) => { e.stopPropagation(); handleMonthChange(-1); }} className="p-1.5 md:p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-all"><ChevronLeft size={16} /></button>
-                            <button onClick={(e) => { e.stopPropagation(); setViewDate(new Date()); }} className="text-[10px] font-bold uppercase text-primary-500 px-2 py-1 hover:bg-primary-500/10 rounded-md transition-all">Today</button>
-                            <button onClick={(e) => { e.stopPropagation(); handleMonthChange(1); }} className="p-1.5 md:p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-all"><ChevronRight size={16} /></button>
+                            <button onClick={(e) => { e.stopPropagation(); handleMonthChange(-1); }} className="p-1 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-all"><ChevronLeft size={12} /></button>
+                            <button onClick={(e) => { e.stopPropagation(); setViewDate(new Date()); }} className="text-[8px] font-bold uppercase text-primary-500 px-1 py-0.5 hover:bg-primary-500/10 rounded-md transition-all">Today</button>
+                            <button onClick={(e) => { e.stopPropagation(); handleMonthChange(1); }} className="p-1 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-all"><ChevronRight size={12} /></button>
                         </div>
                     </div>
 
                     {/* Calendar Grid */}
-                    <div className="p-3 md:p-4">
-                        <div className="grid grid-cols-7 mb-2 border-b border-white/5 pb-2">
+                    <div className="p-1.5 md:p-2">
+                        <div className="grid grid-cols-7 mb-1 border-b border-white/5 pb-1">
                             {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
-                                <div key={day} className="text-center text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">
+                                <div key={day} className="text-center text-[7.5px] md:text-[8px] font-bold text-slate-500 uppercase tracking-[0.2em]">
                                     {day}
                                 </div>
                             ))}
                         </div>
-                        <div className="grid grid-cols-7 gap-0.5 md:gap-1">
+                        <div className="grid grid-cols-7 gap-0">
                             {generateDays().map((item, idx) => (
                                 <button
                                     key={idx}
                                     onClick={(e) => { e.stopPropagation(); handleDateSelect(item.date); }}
                                     className={`
-                                        relative h-8 md:h-10 w-full flex items-center justify-center rounded-xl text-[11px] md:text-xs font-bold transition-all group
+                                        relative h-6 md:h-6.5 w-full flex items-center justify-center rounded-md text-[9px] md:text-[10px] font-bold transition-all group
                                         ${!item.current ? 'text-slate-700 opacity-40' : 'text-slate-300 hover:bg-white/10 hover:text-white'}
                                         ${isSelected(item.date) ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/20' : ''}
                                         ${isToday(item.date) && !isSelected(item.date) ? 'bg-primary-500/10 text-primary-400 border border-primary-500/20' : ''}
@@ -180,10 +180,10 @@ const CustomDatePicker = ({
                     </div>
 
                     {/* Footer */}
-                    <div className="px-4 py-3 md:px-5 md:py-4 bg-white/5 flex items-center justify-between border-t border-white/5">
-                         <button onClick={() => setIsOpen(false)} className="text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-rose-500 transition-colors">Close</button>
-                         <div className="flex items-center gap-2 text-[9px] md:text-[10px] font-bold text-slate-600">
-                            <span className="w-1.5 h-1.5 rounded-full bg-primary-500" />
+                    <div className="px-2 py-1.5 md:px-3 md:py-2 bg-white/5 flex items-center justify-between border-t border-white/5">
+                         <button onClick={() => setIsOpen(false)} className="text-[7.5px] md:text-[8px] font-bold text-slate-500 uppercase tracking-widest hover:text-rose-500 transition-colors">Close</button>
+                         <div className="flex items-center gap-1.5 text-[7.5px] md:text-[8px] font-bold text-slate-600">
+                            <span className="w-1 h-1 rounded-full bg-primary-500" />
                             <span>Selected</span>
                          </div>
                     </div>
@@ -202,12 +202,12 @@ const CustomDatePicker = ({
                 ref={buttonRef}
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
-                className={`w-full glass-input bg-white/5 border border-white/10 rounded-2xl px-4 py-3 flex items-center justify-between transition-all hover:border-white/20 ${isOpen ? 'border-primary-500/50 ring-4 ring-primary-500/10' : ''}`}
+                className={`w-full glass-input bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 flex items-center justify-between transition-all hover:border-white/20 ${isOpen ? 'border-primary-500/50 ring-2 ring-primary-500/10' : ''}`}
             >
-                <div className="flex items-center gap-3 truncate">
-                    <CalendarIcon size={16} className={value ? 'text-primary-500' : 'text-slate-500'} />
+                <div className="flex items-center gap-1.5 truncate">
+                    <CalendarIcon size={12} className={value ? 'text-primary-500' : 'text-slate-500'} />
                     <div className="flex flex-col text-left truncate">
-                        <span className={`text-xs md:text-sm font-bold ${value ? 'text-white' : 'text-slate-400'}`}>
+                        <span className={`text-[9.5px] md:text-[10px] font-bold ${value ? 'text-white' : 'text-slate-400'}`}>
                             {value ? new Date(value).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : placeholder}
                         </span>
                     </div>

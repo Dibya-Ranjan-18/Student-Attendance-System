@@ -41,12 +41,13 @@ class SubjectViewSet(AcademicViewSet):
         profile = getattr(user, 'studentprofile', None)
         if profile:
             # All-All subjects (no branch/semester restriction) are always visible
-            # Restricted subjects are visible only if branch AND semester match
+            # Restricted subjects are visible only if branch AND semester match (if restricted)
+            from django.db.models import Exists, OuterRef, Q
             qs = Subject.objects.filter(
-                Q(branch__isnull=True, semester__isnull=True) |           # All-All → everyone
-                Q(branch=profile.branch, semester=profile.semester) |     # exact match
-                Q(branch__isnull=True, semester=profile.semester) |       # any branch, same sem
-                Q(branch=profile.branch, semester__isnull=True)           # same branch, any sem
+                (Q(branch__isnull=True) & Q(semester__isnull=True)) |           # All-All
+                (Q(branch__isnull=True) & Q(semester_id=profile.semester_id)) |  # Any branch, same sem
+                (Q(branch_id=profile.branch_id) & Q(semester__isnull=True)) |   # Same branch, any sem
+                (Q(branch_id=profile.branch_id) & Q(semester_id=profile.semester_id)) # Exact match
             )
             # For the Mark Attendance dropdown: only return subjects that have
             # at least one active geofence session configured.
@@ -145,13 +146,12 @@ class StudentProfileViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'])
     def subject_stats(self, request, pk=None):
         instance = self.get_object()
-        # Use same 4-case filter as my_subject_stats / SubjectViewSet to include All-All subjects
-        from django.db.models import Q
+        from django.db.models import Q, Exists, OuterRef
         subjects = Subject.objects.filter(
-            Q(branch__isnull=True, semester__isnull=True) |           # All-All → everyone
-            Q(branch=instance.branch, semester=instance.semester) |   # exact match
-            Q(branch__isnull=True, semester=instance.semester) |      # any branch, same sem
-            Q(branch=instance.branch, semester__isnull=True)          # same branch, any sem
+            (Q(branch__isnull=True) & Q(semester__isnull=True)) |           # All-All
+            (Q(branch__isnull=True) & Q(semester_id=instance.semester_id)) | # Any branch, same sem
+            (Q(branch_id=instance.branch_id) & Q(semester__isnull=True)) |  # Same branch, any sem
+            (Q(branch_id=instance.branch_id) & Q(semester_id=instance.semester_id)) # Exact match
         )
         stats = []
         for sub in subjects:

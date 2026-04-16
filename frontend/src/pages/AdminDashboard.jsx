@@ -1527,12 +1527,12 @@ const Holidays = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                 <div className="lg:col-span-1">
-                    <div className="glass-card shadow-2xl p-8 md:p-10 rounded-[2.5rem] border border-white/5">
-                        <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-6 flex items-center gap-2">
-                            <Calendar size={18} className="text-primary-500" />
+                    <div className="glass-card shadow-2xl p-6 md:p-7 rounded-[2rem] border border-white/5">
+                        <h3 className="text-xs font-bold text-white uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <Calendar size={16} className="text-primary-500" />
                             Register Closure
                         </h3>
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                             <div className="grid grid-cols-1 gap-4">
                                 <CustomDatePicker 
                                     label="Start Date" 
@@ -1547,9 +1547,9 @@ const Holidays = () => {
                             </div>
                             <div>
                                 <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1.5 ml-1">Reason / Event Name</label>
-                                <input type="text" placeholder="e.g. Diwali Break" className="w-full bg-slate-800 border-slate-700 rounded-2xl px-5 py-4 text-white font-bold outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" value={newHoliday.reason} onChange={(e) => setNewHoliday({...newHoliday, reason: e.target.value})} />
+                                <input type="text" placeholder="e.g. Diwali Break" className="w-full bg-slate-800 border-slate-700 rounded-xl px-4 py-3 text-xs text-white font-bold outline-none focus:ring-2 focus:ring-primary-500/50 transition-all" value={newHoliday.reason} onChange={(e) => setNewHoliday({...newHoliday, reason: e.target.value})} />
                             </div>
-                            <button onClick={handleAdd} className="w-full bg-primary-600 hover:bg-primary-500 text-white py-4 rounded-2xl font-bold shadow-xl shadow-primary-600/20 transition-all active:scale-95 transform mt-4">Add To Schedule</button>
+                            <button onClick={handleAdd} className="w-full bg-primary-600 hover:bg-primary-500 text-white py-3 rounded-xl text-xs font-bold shadow-xl shadow-primary-600/20 transition-all active:scale-95 transform mt-2">Add To Schedule</button>
                         </div>
                     </div>
                 </div>
