@@ -145,7 +145,14 @@ class StudentProfileViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'])
     def subject_stats(self, request, pk=None):
         instance = self.get_object()
-        subjects = Subject.objects.filter(branch=instance.branch, semester=instance.semester)
+        # Use same 4-case filter as my_subject_stats / SubjectViewSet to include All-All subjects
+        from django.db.models import Q
+        subjects = Subject.objects.filter(
+            Q(branch__isnull=True, semester__isnull=True) |           # All-All → everyone
+            Q(branch=instance.branch, semester=instance.semester) |   # exact match
+            Q(branch__isnull=True, semester=instance.semester) |      # any branch, same sem
+            Q(branch=instance.branch, semester__isnull=True)          # same branch, any sem
+        )
         stats = []
         for sub in subjects:
             present = AttendanceRecord.objects.filter(student=instance, subject=sub, status='present', date__gte=instance.approval_date).count()
@@ -172,7 +179,9 @@ class StudentProfileViewSet(viewsets.ModelViewSet):
         from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
         from openpyxl.utils import get_column_letter
         from django.http import HttpResponse
+        from django.utils import timezone as tz
         from datetime import datetime
+        now_ist = tz.localtime(tz.now())
 
         domain_id   = request.query_params.get('domain')
         branch_id   = request.query_params.get('branch')
@@ -224,7 +233,7 @@ class StudentProfileViewSet(viewsets.ModelViewSet):
         ws.row_dimensions[1].height = 30
 
         ws.merge_cells('A2:I2')
-        ws['A2'].value = f'Filter: {filter_label}   |   Generated: {datetime.now().strftime("%d %B %Y, %I:%M %p IST")}'
+        ws['A2'].value = f'Filter: {filter_label}   |   Generated: {now_ist.strftime("%d %B %Y, %I:%M %p IST")}'
         ws['A2'].font = Font(name='Calibri', color='64748B', size=9, italic=True)
         ws['A2'].alignment = center
         ws.row_dimensions[2].height = 16
@@ -283,7 +292,7 @@ class StudentProfileViewSet(viewsets.ModelViewSet):
         wb.save(buffer)
         buffer.seek(0)
 
-        filename = f'students_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx'
+        filename = f'students_{now_ist.strftime("%Y%m%d_%H%M")}.xlsx'
         response = HttpResponse(
             buffer.getvalue(),
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'

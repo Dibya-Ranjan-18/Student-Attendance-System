@@ -185,7 +185,9 @@ def reset_password_view(request):
     if not otp_record:
         return Response({"error": "Protocol breach: Verification not completed."}, status=status.HTTP_403_FORBIDDEN)
     
-    user = User.objects.get(email=email)
+    user = User.objects.filter(email=email).first()
+    if not user:
+        return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
     user.password = make_password(new_password)
     user.save()
     

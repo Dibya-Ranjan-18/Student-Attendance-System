@@ -7,7 +7,7 @@ import {
     LayoutDashboard, MapPin, Calendar, TrendingUp, History, 
     User, LogOut, Menu, X, ShieldCheck, ShieldAlert, 
     CheckCircle, XCircle, AlertTriangle, ArrowRight, BookOpen, Info,
-    Mail, Phone, Cpu, Globe, Building, GraduationCap
+    Mail, Phone, Cpu, Globe, Building, GraduationCap, Clock, RefreshCw
 } from 'lucide-react';
 import { 
     ResponsiveContainer, AreaChart, Area, XAxis, YAxis, 
@@ -15,7 +15,7 @@ import {
 } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLoading } from '../context/LoadingContext';
-import CustomSelect from '../components/CustomSelect';
+
 import LoadingOverlay from '../components/LoadingOverlay';
 import Reveal, { RevealList } from '../components/Reveal';
 import logo from '../assets/logo.png';
@@ -319,99 +319,203 @@ const OverviewView = ({ subjectStats, overallStats, attendance, holidays, user }
     );
 };
 
-const MarkView = ({ marking, selectedSubject, setSelectedSubject, subjects, markAttendance, message }) => (
-    <motion.div 
-        variants={sectionVariants}
-        initial="initial"
-        animate="animate"
-        exit="exit"
-        className="max-w-md mx-auto space-y-4 pt-2 lg:pt-0"
-    >
-        <Reveal width="100%">
-            <div className="text-center px-4">
-                <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Attendance <span className="text-primary-500">Check-In</span></h1>
+const MarkView = ({ marking, markAttendance, message }) => {
+    const [activeSessions, setActiveSessions]     = useState([]);
+    const [selectedSession, setSelectedSession]   = useState(null);
+    const [fetchingSessions, setFetchingSessions] = useState(true);
 
-                <p className="text-slate-500 text-[9px] sm:text-[10px] mt-1">Verified geofencing entry</p>
-            </div>
-        </Reveal>
+    const fetchActiveSessions = async () => {
+        setFetchingSessions(true);
+        try {
+            const res = await api.get('attendance/active_session/');
+            const sessions = Array.isArray(res.data) ? res.data : [];
+            setActiveSessions(sessions);
+            // Auto-select if only one unmarked session available
+            const unmarked = sessions.filter(s => !s.already_marked);
+            if (unmarked.length === 1) setSelectedSession(unmarked[0]);
+            else if (sessions.length === 0) setSelectedSession(null);
+        } catch (e) {
+            console.error('Failed to fetch active sessions', e);
+        } finally {
+            setFetchingSessions(false);
+        }
+    };
 
-        <Reveal delay={0.1} width="100%">
-            <div className="glass-card p-5 md:p-6 rounded-[2.5rem] shadow-2xl relative">
-                <div className="absolute inset-0 rounded-[2.5rem] overflow-hidden pointer-events-none">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary-600 to-emerald-500"></div>
+    useEffect(() => { fetchActiveSessions(); }, []);
+
+    const handleMark = async () => {
+        if (!selectedSession || selectedSession.already_marked || marking) return;
+        const success = await markAttendance(selectedSession.subject_id, selectedSession.subject_name);
+        if (success) fetchActiveSessions();   // refresh to show "Already Marked"
+    };
+
+    return (
+        <motion.div
+            variants={sectionVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="max-w-md mx-auto space-y-4 pt-2 lg:pt-0"
+        >
+            <Reveal width="100%">
+                <div className="text-center px-4">
+                    <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Attendance <span className="text-primary-500">Check-In</span></h1>
+                    <p className="text-slate-500 text-[9px] sm:text-[10px] mt-1">Verified geofencing entry</p>
                 </div>
-                
-                <div className="space-y-6">
-                    <div className="flex flex-col items-center justify-center py-2">
-                        <motion.div 
-                            animate={marking ? { scale: [1, 1.1, 1] } : {}}
-                            transition={{ repeat: Infinity, duration: 1.5 }}
-                            className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center transition-all duration-500 ${marking ? 'bg-primary-600/10 text-primary-500 outline outline-4 outline-primary-500/20' : 'bg-slate-800 text-slate-500 cursor-pointer'}`}>
-                            {marking && (
-                                <motion.div 
-                                    animate={{ y: [0, 64, 0] }}
-                                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                                    className="absolute top-0 left-0 right-0 h-0.5 bg-primary-500/80 shadow-[0_0_20px_rgba(14,165,233,1)] z-10"
-                                />
-                            )}
-                            <MapPin size={32} className="sm:size-[36px]" />
-                        </motion.div>
-                        <p className="text-[9px] sm:text-[10px] font-bold tracking-[0.2em] text-slate-500 mt-4 opacity-70">Secure Location Verify</p>
+            </Reveal>
+
+            <Reveal delay={0.1} width="100%">
+                <div className="glass-card p-5 md:p-6 rounded-[2.5rem] shadow-2xl relative">
+                    <div className="absolute inset-0 rounded-[2.5rem] overflow-hidden pointer-events-none">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary-600 to-emerald-500"></div>
                     </div>
 
-                    <div className="space-y-4">
-                        <div>
-                            <CustomSelect
-                                options={subjects}
-                                value={selectedSubject}
-                                onChange={setSelectedSubject}
-                                placeholder="Choose session..."
-                                label="Active Subject"
-                                icon={BookOpen}
-                            />
+                    <div className="space-y-5">
+                        {/* Scanner Icon */}
+                        <div className="flex flex-col items-center justify-center py-2">
+                            <motion.div
+                                animate={marking ? { scale: [1, 1.1, 1] } : {}}
+                                transition={{ repeat: Infinity, duration: 1.5 }}
+                                className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center transition-all duration-500 ${
+                                    marking ? 'bg-primary-600/10 text-primary-500 outline outline-4 outline-primary-500/20' : 'bg-slate-800 text-slate-500'
+                                }`}>
+                                {marking && (
+                                    <motion.div
+                                        animate={{ y: [0, 64, 0] }}
+                                        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                                        className="absolute top-0 left-0 right-0 h-0.5 bg-primary-500/80 shadow-[0_0_20px_rgba(14,165,233,1)] z-10"
+                                    />
+                                )}
+                                <MapPin size={32} className="sm:size-[36px]" />
+                            </motion.div>
+                            <p className="text-[9px] sm:text-[10px] font-bold tracking-[0.2em] text-slate-500 mt-4 opacity-70">Secure Location Verify</p>
                         </div>
 
-                        <button 
-                            onClick={markAttendance}
-                            disabled={marking}
+                        {/* Active Sessions */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between px-1">
+                                <p className="text-[10px] font-bold tracking-[0.2em] text-slate-500 uppercase">
+                                    {fetchingSessions ? 'Detecting schedule...' : activeSessions.length > 0 ? 'Active Now' : 'No Active Class'}
+                                </p>
+                                <button
+                                    onClick={fetchActiveSessions}
+                                    disabled={fetchingSessions}
+                                    title="Refresh"
+                                    className="p-1.5 rounded-lg text-slate-500 hover:text-primary-400 hover:bg-primary-500/10 transition-all disabled:opacity-30"
+                                >
+                                    <RefreshCw size={13} className={fetchingSessions ? 'animate-spin' : ''} />
+                                </button>
+                            </div>
+
+                            {fetchingSessions ? (
+                                <div className="flex items-center justify-center py-8 gap-3">
+                                    <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                                    <p className="text-xs text-slate-500 font-bold">Checking schedule...</p>
+                                </div>
+                            ) : activeSessions.length > 0 ? (
+                                <div className="space-y-2">
+                                    {activeSessions.map(session => (
+                                        <button
+                                            key={session.session_id}
+                                            type="button"
+                                            onClick={() => !session.already_marked && setSelectedSession(session)}
+                                            className={`w-full p-4 rounded-2xl border-2 text-left transition-all duration-300 ${
+                                                session.already_marked
+                                                    ? 'border-emerald-500/30 bg-emerald-500/5 cursor-default'
+                                                    : selectedSession?.session_id === session.session_id
+                                                        ? 'border-primary-500/60 bg-primary-500/10 shadow-lg shadow-primary-500/10'
+                                                        : 'border-slate-800 bg-slate-800/30 hover:border-slate-600'
+                                            }`}
+                                        >
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="min-w-0">
+                                                    <p className={`font-bold text-sm truncate leading-tight ${
+                                                        session.already_marked ? 'text-emerald-400' :
+                                                        selectedSession?.session_id === session.session_id ? 'text-white' : 'text-slate-200'
+                                                    }`}>{session.subject_name}</p>
+                                                    <p className="text-[10px] text-slate-500 font-mono mt-1">
+                                                        {session.start_time} – {session.end_time}
+                                                    </p>
+                                                    <p className="text-[9px] text-slate-600 font-bold tracking-widest uppercase mt-0.5">
+                                                        {session.location_name}
+                                                    </p>
+                                                </div>
+                                                <div className={`shrink-0 w-7 h-7 rounded-xl flex items-center justify-center ${
+                                                    session.already_marked ? 'bg-emerald-500 text-white' :
+                                                    selectedSession?.session_id === session.session_id ? 'bg-primary-500 text-white' :
+                                                    'bg-slate-700 text-slate-500'
+                                                }`}>
+                                                    {session.already_marked
+                                                        ? <CheckCircle size={14} />
+                                                        : selectedSession?.session_id === session.session_id
+                                                            ? <div className="w-2 h-2 rounded-full bg-white" />
+                                                            : <BookOpen size={14} />
+                                                    }
+                                                </div>
+                                            </div>
+                                            {session.already_marked && (
+                                                <p className="text-[9px] text-emerald-500/70 font-bold tracking-widest uppercase mt-2">✓ Attendance Marked</p>
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="py-8 text-center bg-slate-900/50 border border-dashed border-slate-800 rounded-2xl">
+                                    <Clock size={28} className="mx-auto mb-3 text-slate-600" />
+                                    <p className="text-xs font-bold text-slate-500">No class running right now</p>
+                                    <p className="text-[10px] text-slate-600 mt-1">Sessions appear automatically when class starts</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Mark Button */}
+                        <button
+                            onClick={handleMark}
+                            disabled={marking || !selectedSession || selectedSession?.already_marked}
                             className={`w-full py-3 sm:py-3.5 rounded-xl font-bold text-xs sm:text-sm tracking-wider transition-all flex items-center justify-center gap-2 ${
-                                marking 
-                                ? 'bg-slate-800 text-slate-600 cursor-not-allowed' 
-                                : 'bg-primary-600 hover:bg-primary-500 text-white shadow-lg shadow-primary-600/20 active:scale-[0.98]'
+                                marking
+                                    ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                                    : !selectedSession || selectedSession?.already_marked
+                                        ? 'bg-slate-800/50 text-slate-600 cursor-not-allowed'
+                                        : 'bg-primary-600 hover:bg-primary-500 text-white shadow-lg shadow-primary-600/20 active:scale-[0.98]'
                             }`}
                         >
-                            {marking ? 'Processing...' : 'Verify & Mark Attendance'}
-                            {!marking && <ArrowRight size={16} />}
+                            {marking ? 'Processing...' :
+                             selectedSession?.already_marked ? 'Already Marked ✓' :
+                             !selectedSession ? 'No Session Selected' :
+                             'Verify & Mark Attendance'}
+                            {!marking && selectedSession && !selectedSession.already_marked && <ArrowRight size={16} />}
                         </button>
                     </div>
                 </div>
-            </div>
-        </Reveal>
-
-        {message.text && (
-            <Reveal delay={0.2} width="100%">
-                <div className={`p-6 rounded-[2rem] border-2 flex items-start gap-4 animate-in slide-in-from-top-4 duration-300 ${
-                    message.type === 'error' ? 'bg-rose-500/5 border-rose-500/20 text-rose-400' :
-                    message.type === 'warning' ? 'bg-amber-500/5 border-amber-500/20 text-amber-400' :
-                    message.type === 'info' ? 'bg-blue-500/5 border-blue-500/20 text-blue-400' :
-                    'bg-emerald-500/5 border-emerald-500/20 text-emerald-400'
-                }`}>
-                    <div className={`p-2 rounded-xl shrink-0 ${
-                        message.type === 'error' ? 'bg-rose-500 text-white' :
-                        message.type === 'warning' ? 'bg-amber-500 text-white' :
-                        message.type === 'info' ? 'bg-blue-500 text-white' :
-                        'bg-emerald-500 text-white'
-                    }`}>
-                        {message.type === 'error' ? <XCircle size={20} /> : 
-                        message.type === 'warning' ? <AlertTriangle size={20} /> :
-                        message.type === 'info' ? <Info size={20} /> : <CheckCircle size={20} />}
-                    </div>
-                    <p className="text-sm font-bold leading-normal mt-1.5">{message.text}</p>
-                </div>
             </Reveal>
-        )}
-    </motion.div>
-);
+
+            {/* Status message */}
+            {message.text && (
+                <Reveal delay={0.2} width="100%">
+                    <div className={`p-6 rounded-[2rem] border-2 flex items-start gap-4 animate-in slide-in-from-top-4 duration-300 ${
+                        message.type === 'error'   ? 'bg-rose-500/5 border-rose-500/20 text-rose-400' :
+                        message.type === 'warning' ? 'bg-amber-500/5 border-amber-500/20 text-amber-400' :
+                        message.type === 'info'    ? 'bg-blue-500/5 border-blue-500/20 text-blue-400' :
+                        'bg-emerald-500/5 border-emerald-500/20 text-emerald-400'
+                    }`}>
+                        <div className={`p-2 rounded-xl shrink-0 ${
+                            message.type === 'error'   ? 'bg-rose-500 text-white' :
+                            message.type === 'warning' ? 'bg-amber-500 text-white' :
+                            message.type === 'info'    ? 'bg-blue-500 text-white' :
+                            'bg-emerald-500 text-white'
+                        }`}>
+                            {message.type === 'error'   ? <XCircle size={20} /> :
+                             message.type === 'warning' ? <AlertTriangle size={20} /> :
+                             message.type === 'info'    ? <Info size={20} /> : <CheckCircle size={20} />}
+                        </div>
+                        <p className="text-sm font-bold leading-normal mt-1.5">{message.text}</p>
+                    </div>
+                </Reveal>
+            )}
+        </motion.div>
+    );
+};
 
 
 const HistoryView = ({ attendance }) => (
@@ -670,11 +774,7 @@ const StudentDashboard = () => {
     // Core Data States
     const [attendance, setAttendance] = useState([]);
     const [subjectStats, setSubjectStats] = useState([]);
-    const [subjects, setSubjects] = useState([]);
     const [holidays, setHolidays] = useState([]);
-    
-    // Functional States
-    const [selectedSubject, setSelectedSubject] = useState('');
     const [marking, setMarking] = useState(false);
     const [message, setMessage] = useState({ text: '', type: '' });
     const [overallStats, setOverallStats] = useState({ present: 0, absent: 0, percentage: 0 });
@@ -686,15 +786,13 @@ const StudentDashboard = () => {
         const fetchAllData = async () => {
             setIsLoading(true);
             try {
-                const [attRes, subRes, statsRes, holRes] = await Promise.all([
+                const [attRes, statsRes, holRes] = await Promise.all([
                     api.get('attendance/student_history/'),
-                    api.get('subjects/?active_only=1'),   // only subjects with active geofence
                     api.get('attendance/my_subject_stats/'),
                     api.get('holidays/')
                 ]);
 
                 setAttendance(Array.isArray(attRes.data) ? attRes.data : []);
-                setSubjects(Array.isArray(subRes.data) ? subRes.data : []);
                 setSubjectStats(Array.isArray(statsRes.data) ? statsRes.data : []);
                 setHolidays(Array.isArray(holRes.data) ? holRes.data : []);
 
@@ -746,55 +844,53 @@ const StudentDashboard = () => {
     }, []);
 
 
-    const markAttendance = async () => {
-        if (!selectedSubject) {
-            setMessage({ text: 'Please select the subject for this session', type: 'error' });
-            return;
-        }
-
+    // markAttendance now accepts (subjectId, subjectName) from MarkView
+    // and returns true on success so MarkView can refresh its session state
+    const markAttendance = async (subjectId, subjectName) => {
         setMarking(true);
         setMessage({ text: 'Verifying location...', type: 'info' });
 
         if (!navigator.geolocation) {
             setMessage({ text: 'Geolocation is not supported by your browser.', type: 'error' });
             setMarking(false);
-            return;
+            return false;
         }
 
-        navigator.geolocation.getCurrentPosition(async (position) => {
-            try {
-                const { latitude, longitude } = position.coords;
-                const response = await api.post('attendance/mark_attendance/', {
-                    latitude, longitude, subject_id: selectedSubject, 
-                    class_name: subjects.find(s => s.id === parseInt(selectedSubject))?.name || 'Academic Class'
-                });
-                
-                setMessage({ text: response.data.message, type: 'success' });
-                // Re-fetch data to update UI
-                const statsUpdate = await api.get('attendance/my_subject_stats/');
-                setSubjectStats(statsUpdate.data);   // ← update per-subject bars & warnings
-                // Re-calculate overall stats
-                const totalPresent = statsUpdate.data.reduce((acc, s) => acc + s.present, 0);
-                const totalSessions = statsUpdate.data.reduce((acc, s) => acc + s.total, 0);
-                const perc = totalSessions > 0 ? (totalPresent / totalSessions * 100) : 0;
-                setOverallStats({
-                    present: totalPresent,
-                    total: totalSessions,
-                    percentage: Math.round(perc)
-                });
+        const getPosition = () => new Promise((resolve, reject) =>
+            navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 })
+        );
 
-                const attUpdate = await api.get('attendance/student_history/');
-                setAttendance(attUpdate.data);
-            } catch (err) {
-                const errorMsg = err.response?.data?.error || err.response?.data?.detail || 'Location out of bounds or unauthorized.';
-                setMessage({ text: errorMsg, type: 'error' });
-            } finally {
-                setMarking(false);
-            }
-        }, (err) => {
-            setMessage({ text: 'Location access denied. Please enable GPS and try again.', type: 'error' });
+        try {
+            const position = await getPosition();
+            const { latitude, longitude } = position.coords;
+            const response = await api.post('attendance/mark_attendance/', {
+                latitude, longitude, subject_id: subjectId, class_name: subjectName
+            });
+
+            setMessage({ text: response.data.message, type: 'success' });
+
+            // Refresh stats
+            const statsUpdate = await api.get('attendance/my_subject_stats/');
+            setSubjectStats(statsUpdate.data);
+            const totalPresent = statsUpdate.data.reduce((acc, s) => acc + s.present, 0);
+            const totalSessions = statsUpdate.data.reduce((acc, s) => acc + s.total, 0);
+            const perc = totalSessions > 0 ? (totalPresent / totalSessions * 100) : 0;
+            setOverallStats({ present: totalPresent, total: totalSessions, percentage: Math.round(perc) });
+
+            const attUpdate = await api.get('attendance/student_history/');
+            setAttendance(attUpdate.data);
+
+            return true;   // signal success to MarkView
+        } catch (err) {
+            const isGeoError = err && err.code && [1, 2, 3].includes(err.code);
+            const errorMsg = isGeoError
+                ? 'Location access denied. Please enable GPS and try again.'
+                : (err.response?.data?.error || err.response?.data?.detail || 'Location out of bounds or unauthorized.');
+            setMessage({ text: errorMsg, type: 'error' });
+            return false;
+        } finally {
             setMarking(false);
-        }, { enableHighAccuracy: true, timeout: 10000 });
+        }
     };
 
     return (
@@ -911,7 +1007,7 @@ const StudentDashboard = () => {
                     <AnimatePresence mode="wait">
                     <Routes>
                         <Route path="overview" element={<OverviewView subjectStats={subjectStats} overallStats={overallStats} attendance={attendance} holidays={holidays} user={user} />} />
-                        <Route path="mark" element={<MarkView marking={marking} selectedSubject={selectedSubject} setSelectedSubject={setSelectedSubject} subjects={subjects} markAttendance={markAttendance} message={message} />} />
+                        <Route path="mark" element={<MarkView marking={marking} markAttendance={markAttendance} message={message} />} />
                         <Route path="history" element={<HistoryView attendance={attendance} />} />
                         <Route path="stats" element={<StatsView subjectStats={subjectStats} />} />
                         <Route path="profile" element={<ProfileView user={user} setIsMobileMenuOpen={setIsMobileMenuOpen} />} />

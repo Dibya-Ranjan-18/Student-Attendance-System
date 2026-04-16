@@ -95,6 +95,82 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             return AttendanceRecord.objects.all()
         return AttendanceRecord.objects.filter(student__user=user)
 
+    @action(detail=False, methods=['get'])
+    def active_session(self, request):
+        """
+        Returns the CollegeLocation sessions that are running RIGHT NOW for this student.
+        Logic:
+          - current IST time is within start_time..end_time
+          - today's weekday is in days_of_week
+          - is_active = True
+          - subject matches student branch/semester (or is All-All)
+          - not a holiday today
+        """
+        user = request.user
+        profile = getattr(user, 'studentprofile', None)
+        if not profile:
+            return Response({"error": "Profile not found"}, status=400)
+
+        now_local = timezone.localtime(timezone.now())
+        current_time = now_local.time()
+        current_day  = str(now_local.weekday())   # '0'=Mon … '6'=Sun
+        today        = now_local.date()
+
+        # No sessions on holidays
+        if Holiday.objects.filter(start_date__lte=today, end_date__gte=today).exists():
+            return Response([])
+
+        # No sessions on Sunday
+        if now_local.weekday() == 6:
+            return Response([])
+
+        active_locations = CollegeLocation.objects.filter(
+            is_active=True,
+            start_time__isnull=False,
+            end_time__isnull=False,
+        ).select_related('subject')
+
+        sessions = []
+        for loc in active_locations:
+            # Day check
+            if current_day not in loc.days_of_week.split(','):
+                continue
+            # Time window check
+            if not (loc.start_time <= current_time <= loc.end_time):
+                continue
+            subject = loc.subject
+            if not subject:
+                continue
+            # Branch / semester eligibility
+            if subject.branch is None and subject.semester is None:
+                eligible = True                                         # All-All
+            elif subject.branch is None:
+                eligible = (profile.semester_id == subject.semester_id)
+            elif subject.semester is None:
+                eligible = (profile.branch_id == subject.branch_id)
+            else:
+                eligible = (profile.branch_id == subject.branch_id and
+                            profile.semester_id == subject.semester_id)
+            if not eligible:
+                continue
+            # Already marked present today?
+            already_marked = AttendanceRecord.objects.filter(
+                student=profile, date=today, subject=subject, status='present'
+            ).exists()
+
+            sessions.append({
+                'session_id':    loc.id,
+                'subject_id':    subject.id,
+                'subject_name':  subject.name,
+                'location_name': loc.name,
+                'start_time':    loc.start_time.strftime('%I:%M %p'),
+                'end_time':      loc.end_time.strftime('%I:%M %p'),
+                'already_marked': already_marked,
+            })
+
+        return Response(sessions)
+
+
     @action(detail=False, methods=['post'])
     def mark_attendance(self, request):
         user = request.user
@@ -173,7 +249,9 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             return Response({"error": f"Session Inactive: Attendance for {subject.name} is only allowed between {active_locations[0].start_time.strftime('%H:%M')} and {active_locations[0].end_time.strftime('%H:%M')}."}, status=status.HTTP_403_FORBIDDEN)
         
         today = date.today()
-        if AttendanceRecord.objects.filter(student=profile, date=today, subject=subject).exists():
+        # Only block if already marked PRESENT — auto-synced 'absent' records should
+        # be overwriteable when the student physically shows up and marks attendance.
+        if AttendanceRecord.objects.filter(student=profile, date=today, subject=subject, status='present').exists():
            return Response({"error": "Attendance already marked for this subject today!"}, status=status.HTTP_400_BAD_REQUEST)
 
         record, created = AttendanceRecord.objects.update_or_create(
@@ -287,7 +365,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             'is_holiday': bool(is_holiday),
             'holiday_reason': is_holiday.reason if is_holiday else '',
             'summary': {
-                'total_present': AttendanceRecord.objects.filter(date=target_date, status='present').values('student').distinct().count(),
+                'total_present': attendance.filter(status='present').values('student').distinct().count(),
                 'total_absent': len(absent_records),
                 'total_subjects': subject_summaries_qs.count()
             },
