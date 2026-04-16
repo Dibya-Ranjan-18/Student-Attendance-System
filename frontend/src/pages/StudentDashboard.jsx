@@ -688,15 +688,15 @@ const StudentDashboard = () => {
             try {
                 const [attRes, subRes, statsRes, holRes] = await Promise.all([
                     api.get('attendance/student_history/'),
-                    api.get('subjects/'),
+                    api.get('subjects/?active_only=1'),   // only subjects with active geofence
                     api.get('attendance/my_subject_stats/'),
                     api.get('holidays/')
                 ]);
 
-                setAttendance(attRes.data);
-                setSubjects(subRes.data);
-                setSubjectStats(statsRes.data);
-                setHolidays(holRes.data);
+                setAttendance(Array.isArray(attRes.data) ? attRes.data : []);
+                setSubjects(Array.isArray(subRes.data) ? subRes.data : []);
+                setSubjectStats(Array.isArray(statsRes.data) ? statsRes.data : []);
+                setHolidays(Array.isArray(holRes.data) ? holRes.data : []);
 
                 // Calculate overall stats from subject stats
                 const totalPresent = statsRes.data.reduce((acc, s) => acc + s.present, 0);
@@ -772,6 +772,7 @@ const StudentDashboard = () => {
                 setMessage({ text: response.data.message, type: 'success' });
                 // Re-fetch data to update UI
                 const statsUpdate = await api.get('attendance/my_subject_stats/');
+                setSubjectStats(statsUpdate.data);   // ← update per-subject bars & warnings
                 // Re-calculate overall stats
                 const totalPresent = statsUpdate.data.reduce((acc, s) => acc + s.present, 0);
                 const totalSessions = statsUpdate.data.reduce((acc, s) => acc + s.total, 0);

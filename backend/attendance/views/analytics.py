@@ -2,13 +2,44 @@ from datetime import date, datetime, timedelta
 from django.db.models import Count, Q, F, ExpressionWrapper, FloatField
 from rest_framework.response import Response
 
-from ..models import StudentProfile, AttendanceRecord, CollegeLocation
+from ..models import StudentProfile, AttendanceRecord, CollegeLocation, Holiday
 from .attendance_logic import sync_absent_attendance
 
 def get_student_analytics():
+    today = date.today()
+
+    # ------------------------------------------------------------------ #
+    #  STEP 1 — Sync absent records FIRST so all queries below see        #
+    #           fresh, up-to-date data.                                   #
+    # ------------------------------------------------------------------ #
+    # Back-fill absent records for the last 30 days only.
+    # The APScheduler handles full history every 30 min; this covers any gaps
+    # since the last scheduler run without scanning months of history on every load.
+    earliest = StudentProfile.objects.filter(
+        is_approved=True, approval_date__isnull=False
+    ).order_by('approval_date').values_list('approval_date', flat=True).first()
+
+    backfill_start = max(earliest, today - timedelta(days=30)) if earliest else None
+
+    if backfill_start:
+        cursor = backfill_start
+        while cursor < today:
+            # Skip Sundays and holidays
+            if cursor.weekday() != 6 and not Holiday.objects.filter(
+                start_date__lte=cursor, end_date__gte=cursor
+            ).exists():
+                sync_absent_attendance(cursor)
+            cursor += timedelta(days=1)
+
+
+    # Sync today (respects the session-end time guard inside the function)
+    sync_absent_attendance(today)
+
+    # ------------------------------------------------------------------ #
+    #  STEP 2 — Now query the database (absent records are already there) #
+    # ------------------------------------------------------------------ #
     students = StudentProfile.objects.all()
     total_students = students.count()
-    today = date.today()
     present_today = AttendanceRecord.objects.filter(date=today, status='present').values('student').distinct().count()
     active_geofences = CollegeLocation.objects.filter(is_active=True).count()
     
@@ -48,6 +79,18 @@ def get_student_analytics():
         if sid not in failing_map: failing_map[sid] = []
         failing_map[sid].append(f"{rec['subject__name']} ({round(rec['sub_perc'], 1)}%)")
 
+    # Collect student IDs that already have records (present or absent)
+    students_with_records = set(
+        AttendanceRecord.objects.filter(
+            date__gte=F('student__approval_date')
+        ).values_list('student_id', flat=True).distinct()
+    )
+
+    # Fallback: students approved on or before today with ZERO records → 0% attendance
+    for s_profile in students.filter(is_approved=True, approval_date__lte=today):
+        if s_profile.id not in students_with_records and s_profile.id not in failing_map:
+            failing_map[s_profile.id] = ['0% — No attendance records found']
+
     for sid, details in failing_map.items():
         s_profile = students.filter(id=sid).first()
         if s_profile:
@@ -65,8 +108,6 @@ def get_student_analytics():
             'name': day.strftime('%a'),
             'present': count
         })
-
-    sync_absent_attendance(today)
 
     return {
         'total_students': total_students,

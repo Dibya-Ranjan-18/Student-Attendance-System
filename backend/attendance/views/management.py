@@ -26,6 +26,13 @@ class SubjectViewSet(AcademicViewSet):
     queryset = Subject.objects.all()
     serializer_class = SubjectSerializer
 
+    def get_permissions(self):
+        # Admins can do anything; authenticated students can list/retrieve;
+        # anonymous users cannot access subject list at all
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAdminUser()]
+
     def get_queryset(self):
         user = self.request.user
         if user.is_staff:
@@ -33,11 +40,20 @@ class SubjectViewSet(AcademicViewSet):
         
         profile = getattr(user, 'studentprofile', None)
         if profile:
-            return Subject.objects.filter(
-                Q(branch=profile.branch, semester=profile.semester) |
-                Q(branch__isnull=True) |
-                Q(semester__isnull=True)
+            # All-All subjects (no branch/semester restriction) are always visible
+            # Restricted subjects are visible only if branch AND semester match
+            qs = Subject.objects.filter(
+                Q(branch__isnull=True, semester__isnull=True) |           # All-All → everyone
+                Q(branch=profile.branch, semester=profile.semester) |     # exact match
+                Q(branch__isnull=True, semester=profile.semester) |       # any branch, same sem
+                Q(branch=profile.branch, semester__isnull=True)           # same branch, any sem
             )
+            # For the Mark Attendance dropdown: only return subjects that have
+            # at least one active geofence session configured.
+            # Admin list view gets all subjects regardless.
+            if self.request.query_params.get('active_only') == '1':
+                qs = qs.filter(collegelocation__is_active=True).distinct()
+            return qs
         return Subject.objects.none()
 
 class HolidayViewSet(viewsets.ModelViewSet):
@@ -110,6 +126,16 @@ class StudentProfileViewSet(viewsets.ModelViewSet):
             return [permissions.IsAdminUser()]
         return super().get_permissions()
 
+    def get_queryset(self):
+        qs = StudentProfile.objects.all()
+        domain_id   = self.request.query_params.get('domain')
+        branch_id   = self.request.query_params.get('branch')
+        semester_id = self.request.query_params.get('semester')
+        if domain_id:   qs = qs.filter(domain_id=domain_id)
+        if branch_id:   qs = qs.filter(branch_id=branch_id)
+        if semester_id: qs = qs.filter(semester_id=semester_id)
+        return qs
+
     @action(detail=False, methods=['get'])
     def analytics(self, request):
         from .analytics import get_student_analytics
@@ -135,6 +161,135 @@ class StudentProfileViewSet(viewsets.ModelViewSet):
                 'percentage': round(percentage, 2)
             })
         return Response(stats)
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAdminUser])
+    def export_students(self, request):
+        """
+        Export filtered student list as a styled Excel file.
+        Query params: domain (id), branch (id), semester (id)
+        """
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+        from django.http import HttpResponse
+        from datetime import datetime
+
+        domain_id   = request.query_params.get('domain')
+        branch_id   = request.query_params.get('branch')
+        semester_id = request.query_params.get('semester')
+
+        qs = StudentProfile.objects.select_related(
+            'user', 'domain', 'branch', 'semester'
+        ).filter(is_approved=True).order_by('branch__name', 'semester__name', 'registration_no')
+
+        if domain_id:   qs = qs.filter(domain_id=domain_id)
+        if branch_id:   qs = qs.filter(branch_id=branch_id)
+        if semester_id: qs = qs.filter(semester_id=semester_id)
+
+
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'Students'
+
+        # Styles
+        HEADER_FILL  = PatternFill('solid', fgColor='0F172A')
+        ALT_FILL     = PatternFill('solid', fgColor='F8FAFC')
+        thin         = Side(style='thin', color='CBD5E1')
+        border       = Border(left=thin, right=thin, top=thin, bottom=thin)
+        header_font  = Font(name='Calibri', bold=True, color='FFFFFF', size=11)
+        title_font   = Font(name='Calibri', bold=True, color='0F172A', size=16)
+        cell_font    = Font(name='Calibri', size=10, color='1E293B')
+        center       = Alignment(horizontal='center', vertical='center')
+        left         = Alignment(horizontal='left',   vertical='center')
+
+        # Build filter label
+        filter_parts = []
+        if domain_id:
+            d = Domain.objects.filter(id=domain_id).first()
+            if d: filter_parts.append(f'Domain: {d.name}')
+        if branch_id:
+            b = Branch.objects.filter(id=branch_id).first()
+            if b: filter_parts.append(f'Branch: {b.name}')
+        if semester_id:
+            s = Semester.objects.filter(id=semester_id).first()
+            if s: filter_parts.append(f'Semester: {s.name}')
+        filter_label = '  |  '.join(filter_parts) if filter_parts else 'All Students'
+
+        # Title
+        ws.merge_cells('A1:I1')
+        ws['A1'].value = 'TAP2PRESENT — Student Report'
+        ws['A1'].font = title_font
+        ws['A1'].alignment = center
+        ws.row_dimensions[1].height = 30
+
+        ws.merge_cells('A2:I2')
+        ws['A2'].value = f'Filter: {filter_label}   |   Generated: {datetime.now().strftime("%d %B %Y, %I:%M %p IST")}'
+        ws['A2'].font = Font(name='Calibri', color='64748B', size=9, italic=True)
+        ws['A2'].alignment = center
+        ws.row_dimensions[2].height = 16
+
+        ws.append([])
+        ws.row_dimensions[3].height = 6
+
+        # Headers
+        headers = ['#', 'Registration No', 'Full Name', 'Email', 'Phone', 'Domain', 'Branch', 'Semester', 'Approved On']
+        ws.append(headers)
+        header_row = ws.max_row
+        ws.row_dimensions[header_row].height = 22
+        for col_idx in range(1, len(headers) + 1):
+            cell = ws.cell(row=header_row, column=col_idx)
+            cell.font = header_font
+            cell.fill = HEADER_FILL
+            cell.alignment = center
+            cell.border = border
+
+        # Data rows
+        for i, s in enumerate(qs, start=1):
+            row_fill = ALT_FILL if i % 2 == 0 else None
+            row_data = [
+                i,
+                s.registration_no,
+                s.user.get_full_name(),
+                s.user.email,
+                s.phone_no or '—',
+                s.domain.name if s.domain else '—',
+                s.branch.name if s.branch else '—',
+                s.semester.name if s.semester else '—',
+                s.approval_date.strftime('%d-%m-%Y') if s.approval_date else '—',
+            ]
+            ws.append(row_data)
+            data_row = ws.max_row
+            ws.row_dimensions[data_row].height = 18
+            for col_idx, _ in enumerate(row_data, start=1):
+                cell = ws.cell(row=data_row, column=col_idx)
+                cell.font = cell_font
+                cell.alignment = center if col_idx != 3 else left
+                cell.border = border
+                if row_fill:
+                    cell.fill = row_fill
+
+        # Column widths
+        col_widths = [5, 18, 28, 32, 16, 20, 18, 18, 16]
+        for col_idx, width in enumerate(col_widths, start=1):
+            ws.column_dimensions[get_column_letter(col_idx)].width = width
+
+        # Summary row
+        ws.append([])
+        ws.append(['', f'Total Students: {qs.count()}'])
+
+        import io
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+
+        filename = f'students_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx'
+        response = HttpResponse(
+            buffer.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()

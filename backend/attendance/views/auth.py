@@ -24,14 +24,11 @@ def register_student(request):
     reg_no = request.data.get('registration_no')
     email = request.data.get('email')
     
-    # 1. Clean up "Orphaned" Student Users
+    # Clean up any orphaned User accounts (no StudentProfile) with same reg_no or email
     orphans = User.objects.filter(Q(username=reg_no) | Q(email=email), is_staff=False)
     for orphan in orphans:
         if not hasattr(orphan, 'studentprofile'):
             orphan.delete()
-
-    # 2. Clean up "Stale" Registration Requests
-    RegistrationRequest.objects.filter(Q(registration_no=reg_no) | Q(email=email), is_processed=True).delete()
 
     # 3. Check for ACTIVE students or PENDING requests
     if StudentProfile.objects.filter(registration_no=reg_no).exists() or RegistrationRequest.objects.filter(registration_no=reg_no, is_processed=False).exists():
@@ -169,7 +166,8 @@ def verify_otp_view(request):
     if not otp_record:
         return Response({"error": "Invalid verification code."}, status=status.HTTP_401_UNAUTHORIZED)
     
-    if (datetime.now(otp_record.created_at.tzinfo) - otp_record.created_at).total_seconds() > 600:
+    from django.utils import timezone as tz
+    if (tz.now() - otp_record.created_at).total_seconds() > 600:
         otp_record.delete()
         return Response({"error": "Verification code expired."}, status=status.HTTP_401_UNAUTHORIZED)
     

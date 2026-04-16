@@ -24,10 +24,13 @@ def get_distance(lat1, lon1, lat2, lon2):
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 def sync_absent_attendance(target_date, profile=None):
+    from django.utils import timezone as tz
     if target_date.weekday() == 6 or Holiday.objects.filter(start_date__lte=target_date, end_date__gte=target_date).exists():
         return
     
-    now = datetime.now()
+    # Use IST local time so the session-end comparison is correct on production servers
+    now_local = tz.localtime(tz.now())
+    now = now_local.replace(tzinfo=None)   # naive datetime for combine() comparison
     day_idx = str(target_date.weekday())
     
     active_sessions = CollegeLocation.objects.filter(
@@ -44,16 +47,22 @@ def sync_absent_attendance(target_date, profile=None):
     for session in active_sessions:
         session_end = datetime.combine(target_date, session.end_time)
         if target_date == date.today() and now < session_end:
-            continue
+            continue  # Session not yet finished for today – skip
         
         subject = session.subject
         if not subject: continue
 
-        eligible_students = base_students.filter(
-            Q(branch=subject.branch, semester=subject.semester) |
-            Q(branch__isnull=True) |
-            Q(semester__isnull=True)
-        )
+        # Build the eligible student filter:
+        # - If the subject has NO branch/semester restriction (All-All), every approved student qualifies.
+        # - If the subject IS restricted, only students whose branch AND semester match qualify.
+        if subject.branch is None and subject.semester is None:
+            eligible_students = base_students  # no restriction → all students
+        elif subject.branch is None:
+            eligible_students = base_students.filter(semester=subject.semester)
+        elif subject.semester is None:
+            eligible_students = base_students.filter(branch=subject.branch)
+        else:
+            eligible_students = base_students.filter(branch=subject.branch, semester=subject.semester)
         
         existing_student_ids = set(AttendanceRecord.objects.filter(
             date=target_date, 
@@ -169,7 +178,11 @@ class AttendanceViewSet(viewsets.ModelViewSet):
 
         record, created = AttendanceRecord.objects.update_or_create(
             student=profile, date=today, subject=subject,
-            defaults={'status': 'present', 'time': datetime.now().time(), 'latitude': lat, 'longitude': lng, 'class_name': class_name}
+            defaults={
+                'status': 'present',
+                'time': timezone.localtime(timezone.now()).time(),   # IST-aware
+                'latitude': lat, 'longitude': lng, 'class_name': class_name
+            }
         )
         
         return Response({"message": "Attendance marked successfully.", "status": "present"})
@@ -197,11 +210,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         except:
             target_date = date.today()
 
-        attendance = AttendanceRecord.objects.filter(date=target_date)
-        if subject_id:
-            try: attendance = attendance.filter(subject_id=int(subject_id))
-            except: pass
-        
+        # Sync first so the report reflects up-to-date absent records
         sync_absent_attendance(target_date)
         attendance = AttendanceRecord.objects.filter(date=target_date)
         if subject_id:
@@ -237,7 +246,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                         'subject_name': target_sub.name if target_sub else 'N/A',
                         'status': 'holiday' if is_holiday else (record.status if record else 'absent' if target_date < date.today() else 'not_marked'),
                         'subject_percentage': round(sub_perc, 1),
-                        'time': record.time.strftime('%H:%M') if record else None
+                        'time': record.time.strftime('%H:%M') if record and record.time else None
                     }
                     if record and record.status == 'present': present_records.append(entry)
                     else: absent_records.append(entry)
@@ -253,7 +262,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                         'registration_no': s.registration_no,
                         'subject_name': rec.subject.name if rec.subject else 'General',
                         'status': rec.status,
-                        'time': rec.time.strftime('%H:%M')
+                        'time': rec.time.strftime('%H:%M') if rec.time else '—'
                     }
                     if rec.status == 'present': present_records.append(entry)
                     else: absent_records.append(entry)
@@ -364,10 +373,14 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         ).select_related('user', 'branch', 'semester')
         if branch_id:
             students = students.filter(branch_id=branch_id)
-        # Only students eligible for this subject
-        students = students.filter(
-            branch=subject.branch, semester=subject.semester
-        ) if subject.branch and subject.semester else students
+        # Only students eligible for this subject (handles All-All subjects correctly)
+        if subject.branch and subject.semester:
+            students = students.filter(branch=subject.branch, semester=subject.semester)
+        elif subject.branch:
+            students = students.filter(branch=subject.branch)
+        elif subject.semester:
+            students = students.filter(semester=subject.semester)
+        # else: All-All subject → all students eligible, no filter needed
 
         # Fetch all records for the month + subject in one query
         records_qs = AttendanceRecord.objects.filter(
@@ -443,9 +456,10 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         if not profile: return Response({"error": "Profile not found"}, status=400)
 
         subjects = Subject.objects.filter(
-            Q(branch=profile.branch, semester=profile.semester) |
-            Q(branch__isnull=True) |
-            Q(semester__isnull=True)
+            Q(branch__isnull=True, semester__isnull=True) |           # All-All → everyone
+            Q(branch=profile.branch, semester=profile.semester) |     # exact match
+            Q(branch__isnull=True, semester=profile.semester) |       # any branch, same sem
+            Q(branch=profile.branch, semester__isnull=True)           # same branch, any sem
         )
         stats = []
         for sub in subjects:
@@ -485,7 +499,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
 
         record, created = AttendanceRecord.objects.update_or_create(
             student=profile, date=target_date, subject=subject,
-            defaults={'status': status_val, 'time': datetime.now().time()}
+            defaults={'status': status_val, 'time': timezone.localtime(timezone.now()).time()}
         )
         return Response({"message": "Record updated"})
 
@@ -555,7 +569,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
 
         ws.merge_cells('A2:H2')
         subtitle_cell = ws['A2']
-        subtitle_cell.value = f'Generated on {datetime.now().strftime("%d %B %Y, %I:%M %p IST")}'
+        subtitle_cell.value = f'Generated on {timezone.localtime(timezone.now()).strftime("%d %B %Y, %I:%M %p IST")}'
         subtitle_cell.font  = Font(name='Calibri', color='64748B', size=9, italic=True)
         subtitle_cell.alignment = center_align
         ws.row_dimensions[2].height = 16
@@ -657,7 +671,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             ('Present',               present_count),
             ('Absent',                absent_count),
             ('Overall Percentage',    f'{percentage}%'),
-            ('Report Generated',      datetime.now().strftime('%d-%m-%Y %H:%M')),
+            ('Report Generated',      timezone.localtime(timezone.now()).strftime('%d-%m-%Y %H:%M IST')),
         ]
         for r_label, r_value in summary_rows:
             ws_summary.append([r_label, r_value])
@@ -673,7 +687,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         wb.save(buffer)
         buffer.seek(0)
 
-        filename = f'attendance_report_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx'
+        filename = f'attendance_report_{timezone.localtime(timezone.now()).strftime("%Y%m%d_%H%M")}.xlsx'
         response = HttpResponse(
             buffer.getvalue(),
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'

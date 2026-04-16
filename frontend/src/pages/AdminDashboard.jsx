@@ -241,59 +241,15 @@ const sidebarVariants = {
 };
 
 const Overview = ({ stats }) => {
-    const { addNotification } = useNotification();
-    const [downloading, setDownloading] = React.useState(false);
-
-    const handleDownload = async () => {
-        setDownloading(true);
-        try {
-            const response = await api.get('attendance/download_excel/', { responseType: 'blob' });
-            const blob = new Blob([response.data], {
-                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            });
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            const date = new Date();
-            const dateStr = `${date.getFullYear()}${String(date.getMonth()+1).padStart(2,'0')}${String(date.getDate()).padStart(2,'0')}`;
-            link.setAttribute('download', `attendance_report_${dateStr}.xlsx`);
-            document.body.appendChild(link);
-            link.click();
-            link.parentNode.removeChild(link);
-            window.URL.revokeObjectURL(url);
-            addNotification("Report downloaded successfully", "success");
-        } catch (err) {
-            addNotification("Failed to generate report. Please try again.", "error");
-            console.error("Download error:", err);
-        } finally {
-            setDownloading(false);
-        }
-    };
 
     return (
         <motion.div 
             {...sectionVariants}
             className="space-y-6 md:space-y-8"
         >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-xl md:text-3xl font-bold tracking-tight text-white flex items-baseline gap-2">Dashboard <span className="text-primary-500">Overview</span></h1>
-                    <p className="text-slate-400 text-[10px] md:text-sm mt-0.5">Real-time attendance metrics and analytics</p>
-                </div>
-                <button 
-                    onClick={handleDownload}
-                    disabled={downloading}
-                    className={`flex items-center justify-center gap-2 text-white px-4 py-2.5 md:px-5 md:py-3 rounded-xl font-bold text-[11px] md:text-sm transition-all shadow-lg active:scale-[0.98] ${
-                        downloading 
-                        ? 'bg-slate-700 cursor-not-allowed opacity-70' 
-                        : 'bg-primary-600 hover:bg-primary-500 shadow-primary-600/20'
-                    }`}
-                >
-                    {downloading 
-                        ? <><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Generating...</>
-                        : <><FileDown size={16} /> Export Report</>
-                    }
-                </button>
+            <div>
+                <h1 className="text-xl md:text-3xl font-bold tracking-tight text-white flex items-baseline gap-2">Dashboard <span className="text-primary-500">Overview</span></h1>
+                <p className="text-slate-400 text-[10px] md:text-sm mt-0.5">Real-time attendance metrics and analytics</p>
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
@@ -471,6 +427,10 @@ const Students = () => {
     const [search, setSearch] = useState('');
     const [editingStudent, setEditingStudent] = useState(null);
     const [studentStats, setStudentStats] = useState([]);
+    const [filterDomain, setFilterDomain] = useState(null);
+    const [filterBranch, setFilterBranch] = useState(null);
+    const [filterSemester, setFilterSemester] = useState(null);
+    const [exporting, setExporting] = useState(false);
     const [statsLoading, setStatsLoading] = useState(false);
     const [academicData, setAcademicData] = useState({ domains: [], branches: [], semesters: [] });
 
@@ -535,8 +495,39 @@ const Students = () => {
         const name = `${s.user_details?.first_name || ''} ${s.user_details?.last_name || ''}`.toLowerCase();
         const reg = (s.registration_no || '').toLowerCase();
         const query = search.toLowerCase();
-        return name.includes(query) || reg.includes(query);
+        const matchSearch = name.includes(query) || reg.includes(query);
+        const matchDomain   = !filterDomain   || s.domain   === filterDomain;
+        const matchBranch   = !filterBranch   || s.branch   === filterBranch;
+        const matchSemester = !filterSemester || s.semester === filterSemester;
+        return matchSearch && matchDomain && matchBranch && matchSemester;
     });
+
+    const handleExport = async () => {
+        setExporting(true);
+        try {
+            const params = new URLSearchParams();
+            if (filterDomain)   params.append('domain',   filterDomain);
+            if (filterBranch)   params.append('branch',   filterBranch);
+            if (filterSemester) params.append('semester', filterSemester);
+            const response = await api.get(`students/export_students/?${params.toString()}`, { responseType: 'blob' });
+            const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            const date = new Date();
+            const ds = `${date.getFullYear()}${String(date.getMonth()+1).padStart(2,'0')}${String(date.getDate()).padStart(2,'0')}`;
+            link.setAttribute('download', `students_${ds}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            addNotification('Student report downloaded!', 'success');
+        } catch {
+            addNotification('Failed to export. Try again.', 'error');
+        } finally {
+            setExporting(false);
+        }
+    };
 
     return (
         <motion.div {...sectionVariants} className="space-y-6">
@@ -658,12 +649,72 @@ const Students = () => {
                         exit={{ opacity: 0, x: -60 }}
                         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                     >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                        <h1 className="text-xl md:text-3xl font-bold tracking-tight text-white">Student <span className="text-primary-500">Database</span></h1>
-                        <div className="relative w-full sm:w-auto rounded-2xl overflow-hidden">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 z-10" size={18} />
-                            <input type="text" placeholder="Search student identity matrix..." className="w-full sm:w-80 glass-input pl-12 pr-4 py-3.5 text-sm outline-none rounded-2xl" value={search} onChange={e => setSearch(e.target.value)} />
+                    {/* Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                            <h1 className="text-xl md:text-3xl font-bold tracking-tight text-white">Student <span className="text-primary-500">Database</span></h1>
+                            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.15em] mt-0.5">{filtered.length} of {students.length} students</p>
                         </div>
+                        <button
+                            onClick={handleExport}
+                            disabled={exporting}
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-[11px] md:text-sm transition-all shadow-lg active:scale-95 ${
+                                exporting ? 'bg-slate-700 cursor-not-allowed opacity-70 text-slate-400' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
+                            }`}
+                        >
+                            {exporting
+                                ? <><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Exporting...</>
+                                : <><Download size={15} /> Export Students</>
+                            }
+                        </button>
+                    </div>
+
+                    {/* Filters */}
+                    <div className="glass-card rounded-2xl p-4 border border-white/5">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2"><Filter size={12} /> Filter Students</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                                <label className="text-[10px] text-slate-400 font-bold block mb-1.5 ml-1">Domain</label>
+                                <CustomSelect
+                                    options={[{ id: null, name: 'All Domains' }, ...academicData.domains]}
+                                    value={filterDomain}
+                                    onChange={setFilterDomain}
+                                    placeholder="All Domains"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] text-slate-400 font-bold block mb-1.5 ml-1">Branch</label>
+                                <CustomSelect
+                                    options={[{ id: null, name: 'All Branches' }, ...academicData.branches]}
+                                    value={filterBranch}
+                                    onChange={setFilterBranch}
+                                    placeholder="All Branches"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] text-slate-400 font-bold block mb-1.5 ml-1">Semester</label>
+                                <CustomSelect
+                                    options={[{ id: null, name: 'All Semesters' }, ...academicData.semesters]}
+                                    value={filterSemester}
+                                    onChange={setFilterSemester}
+                                    placeholder="All Semesters"
+                                />
+                            </div>
+                        </div>
+                        {(filterDomain || filterBranch || filterSemester) && (
+                            <button
+                                onClick={() => { setFilterDomain(null); setFilterBranch(null); setFilterSemester(null); }}
+                                className="mt-3 text-[10px] font-bold text-primary-400 hover:text-primary-300 transition-colors flex items-center gap-1"
+                            >
+                                <X size={12} /> Clear All Filters
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Search */}
+                    <div className="relative w-full rounded-2xl overflow-hidden">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 z-10" size={18} />
+                        <input type="text" placeholder="Search by name or registration number..." className="w-full glass-input pl-12 pr-4 py-3.5 text-sm outline-none rounded-2xl" value={search} onChange={e => setSearch(e.target.value)} />
                     </div>
                     <div className="space-y-4">
                         {filtered.length > 0 ? filtered.map(s => (
@@ -1244,7 +1295,7 @@ const DailyAttendance = () => {
 
             <div className="bg-primary-600/10 border border-primary-600/20 p-4 rounded-2xl flex items-center gap-3 text-[11px] text-primary-400 font-medium shadow-sm">
                 <ShieldCheck size={16} />
-                <p>Note: Students with less than 75% attendance in the selected subject are highlighted in <b>Red</b>.</p>
+                <p>Note: Students with less than 85% attendance in the selected subject are highlighted in <b>Red</b>.</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -1255,16 +1306,16 @@ const DailyAttendance = () => {
                         <div 
                             key={sub.id} 
                             onClick={() => setFilters({...filters, subject: sub.id})}
-                            className={`p-4 md:p-5 rounded-2xl md:rounded-3xl border transition-all cursor-pointer group ${filters.subject === sub.id ? 'bg-primary-600/20 border-primary-500 shadow-lg shadow-primary-500/10' : sub.percentage < 75 ? 'bg-rose-500/5 border-rose-500/20' : 'glass-card border-white/5 hover:border-white/20'}`}
+                            className={`p-4 md:p-5 rounded-2xl md:rounded-3xl border transition-all cursor-pointer group ${filters.subject === sub.id ? 'bg-primary-600/20 border-primary-500 shadow-lg shadow-primary-500/10' : sub.percentage < 85 ? 'bg-rose-500/5 border-rose-500/20' : 'glass-card border-white/5 hover:border-white/20'}`}
                         >
                             <div className="flex justify-between items-start mb-2">
-                                <span className={`text-[10px] md:text-xs font-bold truncate pr-2 ${filters.subject === sub.id ? 'text-primary-400' : sub.percentage < 75 ? 'text-rose-400' : 'text-slate-300'}`}>{sub.name}</span>
-                                <span className={`text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-lg ${sub.percentage < 75 ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'}`}>{sub.percentage}%</span>
+                                <span className={`text-[10px] md:text-xs font-bold truncate pr-2 ${filters.subject === sub.id ? 'text-primary-400' : sub.percentage < 85 ? 'text-rose-400' : 'text-slate-300'}`}>{sub.name}</span>
+                                <span className={`text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-lg ${sub.percentage < 85 ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'}`}>{sub.percentage}%</span>
                             </div>
                             <div className="flex items-end justify-between">
                                 <span className="text-lg md:text-xl font-bold text-white leading-none">{sub.present}<span className="text-[10px] md:text-sm text-slate-500 font-medium">/{sub.total_capacity}</span></span>
                                 <div className="w-16 md:w-20 h-1 md:h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                                    <div className={`h-full ${sub.percentage < 75 ? 'bg-rose-500' : 'bg-primary-500'}`} style={{ width: `${sub.percentage}%` }}></div>
+                                    <div className={`h-full ${sub.percentage < 85 ? 'bg-rose-500' : 'bg-primary-500'}`} style={{ width: `${sub.percentage}%` }}></div>
                                 </div>
                             </div>
                         </div>

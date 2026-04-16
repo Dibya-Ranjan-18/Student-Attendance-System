@@ -35,8 +35,9 @@ export const AuthProvider = ({ children }) => {
     const login = async (username, password) => {
         try {
             const response = await api.post('login/', { username, password });
-            const { access, user: userData, role, profile } = response.data;
+            const { access, refresh, user: userData, role, profile } = response.data;
             localStorage.setItem('token', access);
+            if (refresh) localStorage.setItem('refresh_token', refresh);
             const fullUser = { ...userData, role, profile };
             localStorage.setItem('user', JSON.stringify(fullUser));
             setUser(fullUser);
@@ -53,8 +54,9 @@ export const AuthProvider = ({ children }) => {
     const googleLogin = async (token) => {
         try {
             const response = await api.post('google-login/', { token });
-            const { access, user: userData, role, profile } = response.data;
+            const { access, refresh, user: userData, role, profile } = response.data;
             localStorage.setItem('token', access);
+            if (refresh) localStorage.setItem('refresh_token', refresh);
             const fullUser = { ...userData, role, profile };
             localStorage.setItem('user', JSON.stringify(fullUser));
             setUser(fullUser);
@@ -70,6 +72,7 @@ export const AuthProvider = ({ children }) => {
 
     const logout = () => {
         localStorage.removeItem('token');
+        localStorage.removeItem('refresh_token');
         localStorage.removeItem('user');
         setUser(null);
         addNotification("Signed out successfully", "info");

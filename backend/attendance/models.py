@@ -19,8 +19,8 @@ class Subject(models.Model):
         return f"{self.name} ({branch_name} - {semester_name})"
 
 class Holiday(models.Model):
-    start_date = models.DateField(null=True, blank=True)
-    end_date = models.DateField(null=True, blank=True)
+    start_date = models.DateField()           # required — must always be set
+    end_date = models.DateField()             # required — must always be set
     reason = models.CharField(max_length=255)
 
     def __str__(self):
@@ -71,11 +71,11 @@ class RegistrationRequest(models.Model):
     full_name = models.CharField(max_length=255)
     registration_no = models.CharField(max_length=50, unique=True)
     email = models.EmailField(unique=True)
-    phone_no = models.CharField(max_length=15, unique=True)
+    phone_no = models.CharField(max_length=15)   # not unique — same phone can re-register after rejection
     domain = models.ForeignKey(Domain, on_delete=models.CASCADE)
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE)
     semester = models.ForeignKey(Semester, on_delete=models.CASCADE)
-    password = models.CharField(max_length=128) # Hashed password for registration
+    password = models.CharField(max_length=128)
     created_at = models.DateTimeField(auto_now_add=True)
     is_processed = models.BooleanField(default=False)
     is_google_verified = models.BooleanField(default=True)
@@ -87,7 +87,7 @@ class AttendanceRecord(models.Model):
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE)
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, null=True, blank=True)
     date = models.DateField()
-    time = models.TimeField()
+    time = models.TimeField(null=True, blank=True)   # nullable — absent records have no check-in time
     status = models.CharField(max_length=10, choices=[('present', 'Present'), ('absent', 'Absent')])
     class_name = models.CharField(max_length=100, blank=True)
     latitude = models.FloatField(null=True, blank=True)
