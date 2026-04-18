@@ -147,7 +147,7 @@ const AdminDashboard = () => {
             </AnimatePresence>
 
             {/* Main Content Area */}
-            <main className="flex-1 lg:p-10 p-3.5 sm:p-6 pt-28 lg:pt-28 overflow-y-auto w-full relative z-10 custom-scrollbar">
+            <main className="flex-1 lg:p-10 p-3 sm:p-6 pt-24 sm:pt-28 lg:pt-10 overflow-y-auto w-full relative z-10 custom-scrollbar">
                 <div className="w-full h-full">
                     <AnimatePresence mode="wait">
                     <Routes>

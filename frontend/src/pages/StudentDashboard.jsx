@@ -269,7 +269,7 @@ const OverviewView = ({ subjectStats, overallStats, attendance, holidays, user }
         >
         <Reveal width="100%">
             {/* Greeting Section */}
-            <div className="px-1 py-2">
+            <div className="px-2 py-2 sm:px-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                     <div className="flex flex-col gap-1.5">
                         <motion.p
@@ -348,7 +348,7 @@ const OverviewView = ({ subjectStats, overallStats, attendance, holidays, user }
                 variants={containerVariants}
                 initial="initial"
                 animate="animate"
-                className="grid grid-cols-1 md:grid-cols-3 gap-4"
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
             >
                 {/* ... cards ... */}
                 <motion.div 
@@ -1260,7 +1260,7 @@ const StudentDashboard = () => {
             </AnimatePresence>
 
             {/* Main Content Area */}
-            <main className="flex-1 p-4 sm:p-6 lg:p-10 pt-28 lg:pt-28 overflow-y-auto w-full relative z-10 custom-scrollbar">
+            <main className="flex-1 p-3 sm:p-6 lg:p-10 pt-24 sm:pt-28 lg:pt-10 overflow-y-auto w-full relative z-10 custom-scrollbar">
                 <div className="w-full h-full">
                     <AnimatePresence mode="wait">
                     <Routes>
