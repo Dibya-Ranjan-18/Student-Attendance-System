@@ -37,6 +37,10 @@ def register_student(request):
     if User.objects.filter(email=email).exists() or RegistrationRequest.objects.filter(email=email, is_processed=False).exists():
         return Response({"message": "An active account or request with this Email Address already exists."}, status=status.HTTP_400_BAD_REQUEST)
 
+    phone_no = request.data.get('phone_no')
+    if StudentProfile.objects.filter(phone_no=phone_no).exists() or RegistrationRequest.objects.filter(phone_no=phone_no, is_processed=False).exists():
+        return Response({"message": "This Phone Number is already linked to another account or pending request."}, status=status.HTTP_400_BAD_REQUEST)
+
     # 4. Mandatory Google Token Verification
     google_token = request.data.get('google_token')
     if not google_token:
@@ -144,6 +148,13 @@ def send_otp_view(request):
     if not user:
         return Response({"error": "User with this email does not exist."}, status=status.HTTP_404_NOT_FOUND)
     
+    # Rate limiting: 60s cooldown
+    last_otp = OTPReset.objects.filter(email=email).first()
+    if last_otp:
+        time_diff = timezone.now() - last_otp.created_at
+        if time_diff.total_seconds() < 60:
+            return Response({"error": f"Please wait {int(60 - time_diff.total_seconds())} seconds before requesting another code."}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
     otp = ''.join(random.choices(string.digits, k=6))
     OTPReset.objects.filter(email=email).delete()
     OTPReset.objects.create(email=email, otp=otp)

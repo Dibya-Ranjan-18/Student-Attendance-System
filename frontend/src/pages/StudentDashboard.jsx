@@ -7,7 +7,8 @@ import {
     LayoutDashboard, MapPin, Calendar, TrendingUp, History, 
     User, LogOut, Menu, X, ShieldCheck, ShieldAlert, 
     CheckCircle, XCircle, AlertTriangle, ArrowRight, BookOpen, Info,
-    Mail, Phone, Cpu, Globe, Building, GraduationCap, Clock, RefreshCw
+    Mail, Phone, Cpu, Globe, Building, GraduationCap, Clock, RefreshCw, Pencil, Flame,
+    Trophy, Zap, Medal
 } from 'lucide-react';
 import { 
     ResponsiveContainer, AreaChart, Area, XAxis, YAxis, 
@@ -19,6 +20,7 @@ import { useLoading } from '../context/LoadingContext';
 import LoadingOverlay from '../components/LoadingOverlay';
 import Reveal, { RevealList } from '../components/Reveal';
 import logo from '../assets/logo.png';
+import CustomSelect from '../components/CustomSelect';
 
 
 
@@ -116,6 +118,134 @@ const NavItem = ({ to, icon: Icon, label, setIsMobileMenuOpen }) => {
 };
 
 // Sub-Views
+const PathToSuccess = ({ overallStats }) => {
+    const { present, total, percentage } = overallStats;
+    
+    if (!total || total === 0) return null;
+
+    const calculateNeeded = (target) => {
+        const needed = Math.ceil((target * total - present) / (1 - target));
+        return needed > 0 ? needed : 0;
+    };
+
+    const to85 = calculateNeeded(0.85);
+    const to95 = calculateNeeded(0.95);
+
+    let goal = { target: 85, needed: to85, type: 'requirement' };
+    if (percentage >= 85) {
+        goal = { target: 95, needed: to95, type: 'elite' };
+    }
+
+    if (percentage >= 95) {
+        return (
+            <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="glass-card p-5 md:p-6 rounded-[2rem] border-emerald-500/20 bg-emerald-500/5 flex items-center gap-4 group mt-2"
+            >
+                <div className="p-2 md:p-3 bg-emerald-500 rounded-2xl text-white shadow-lg shadow-emerald-500/20 group-hover:rotate-6 transition-transform">
+                    <TrendingUp size={22} className="md:size-6" />
+                </div>
+                <div>
+                    <h4 className="text-emerald-400 font-black text-[9px] md:text-[10px] uppercase tracking-[0.2em] mb-0.5 md:mb-1">Elite Perfect Status 💎</h4>
+                    <p className="text-slate-200 text-[11px] md:text-sm font-medium leading-snug">You have achieved <span className="text-emerald-400 font-black">Perfect 95%+ Attendance</span>. You are a legendary student!</p>
+                </div>
+            </motion.div>
+        );
+    }
+
+    return (
+        <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="glass-card p-5 md:p-6 rounded-[2rem] border-primary-500/20 bg-primary-500/5 relative overflow-hidden group mt-2"
+        >
+            <div className="flex items-center gap-4 relative z-10">
+                <div className={`p-2 md:p-3 rounded-2xl text-white shadow-lg group-hover:scale-110 transition-transform ${goal.type === 'elite' ? 'bg-indigo-600 shadow-indigo-600/20' : 'bg-primary-600 shadow-primary-600/20'}`}>
+                    <TrendingUp size={22} className="md:size-6" />
+                </div>
+                <div className="flex-1">
+                    <h4 className={`font-black text-[9px] md:text-[10px] uppercase tracking-[0.2em] mb-1 ${goal.type === 'elite' ? 'text-indigo-400' : 'text-primary-400'}`}>
+                        {goal.type === 'elite' ? 'Next Milestone: Elite 85% Club 💎' : 'Path to Success 🚀'}
+                    </h4>
+                    <p className="text-white text-xs md:text-base font-bold tracking-tight leading-tight">
+                        Attend <span className={goal.type === 'elite' ? 'text-indigo-400' : 'text-primary-500 font-black'}>{goal.needed} more sessions</span> to hit <span className="font-black underline decoration-2">{goal.target}%</span> overall!
+                    </p>
+                </div>
+            </div>
+            {/* Visual Progress Bar */}
+            <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-800/30 overflow-hidden">
+                <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${percentage}%` }}
+                    transition={{ duration: 1.2, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                    className={`h-full ${goal.type === 'elite' ? 'bg-indigo-600' : 'bg-primary-600'}`}
+                />
+            </div>
+        </motion.div>
+    );
+};
+
+const AchievementsSection = ({ badges }) => {
+    if (!badges || badges.length === 0) return null;
+
+    return (
+        <Reveal delay={0.2} width="100%">
+            <div className="grid grid-cols-2 gap-3 md:gap-4">
+                {badges.map((badge) => {
+                    const isPerfectWeek = badge.id === 'perfect_week';
+                    // Perfect Week is Gold/Amber, Iron Man is Red/Vibrant
+                    const colorClass = isPerfectWeek 
+                        ? (badge.is_unlocked ? 'text-amber-400' : 'text-slate-500')
+                        : (badge.is_unlocked ? 'text-rose-500' : 'text-slate-500');
+                    const bgClass = isPerfectWeek 
+                        ? (badge.is_unlocked ? 'bg-amber-400/10 border-amber-400/20' : 'bg-slate-800/10 border-slate-700/20')
+                        : (badge.is_unlocked ? 'bg-rose-500/10 border-rose-500/20' : 'bg-slate-800/10 border-slate-700/20');
+
+                    return (
+                        <motion.div 
+                            key={badge.id}
+                            whileHover={{ y: -5 }}
+                            className={`glass-card p-3 md:p-5 rounded-2xl md:rounded-[2rem] flex flex-col sm:flex-row items-center sm:items-center gap-3 md:gap-5 relative overflow-hidden group ${bgClass}`}
+                        >
+                            <div className={`p-2.5 md:p-4 rounded-xl md:rounded-2xl relative z-10 transition-colors ${badge.is_unlocked ? 'bg-white/5' : 'bg-slate-800/40'}`}>
+                                {isPerfectWeek ? (
+                                    <ShieldCheck size={24} className={`${colorClass} md:size-8 transition-transform group-hover:scale-110`} />
+                                ) : (
+                                    <Medal size={24} className={`${colorClass} md:size-8 transition-transform group-hover:scale-110`} />
+                                )}
+                            </div>
+                            <div className="flex-1 relative z-10 text-center sm:text-left w-full">
+                                <h4 className={`text-[8px] md:text-[10px] font-black uppercase tracking-[0.15em] md:tracking-[0.2em] mb-1 md:mb-1.5 ${colorClass}`}>
+                                    {badge.name} {badge.is_unlocked ? '✦' : ''}
+                                </h4>
+                                <p className="text-white text-[10px] md:text-base font-bold tracking-tight leading-tight">
+                                    {badge.is_unlocked ? 'Unlocked!' : `${badge.count}/${badge.total} Days`}
+                                </p>
+                                {/* Progress Bar */}
+                                {!badge.is_unlocked && (
+                                    <div className="w-full h-1 md:h-1.5 bg-slate-800/50 rounded-full mt-2 md:mt-3 overflow-hidden">
+                                        <motion.div 
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${(badge.count / badge.total) * 100}%` }}
+                                            transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+                                            className={`h-full ${isPerfectWeek ? 'bg-amber-500' : 'bg-rose-500'}`}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                            {/* Decorative Background */}
+                            {badge.is_unlocked && (
+                                <div className={`absolute -right-8 -top-8 w-24 md:w-32 h-24 md:h-32 blur-3xl rounded-full opacity-30 ${isPerfectWeek ? 'bg-amber-400' : 'bg-rose-500'}`} />
+                            )}
+                        </motion.div>
+                    );
+                })}
+            </div>
+        </Reveal>
+    );
+};
+
 const OverviewView = ({ subjectStats, overallStats, attendance, holidays, user }) => {
     const navigate = useNavigate();
 
@@ -140,49 +270,75 @@ const OverviewView = ({ subjectStats, overallStats, attendance, holidays, user }
         <Reveal width="100%">
             {/* Greeting Section */}
             <div className="px-1 py-2">
-                <div className="flex flex-col gap-1.5">
-                    <motion.p
-                        initial={{ opacity: 0, y: -8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                        className="text-[10px] sm:text-[11px] font-bold tracking-[0.25em] text-slate-500 uppercase flex items-center gap-2"
-                    >
-                        <span>{greeting.emoji}</span>
-                        <span>{greeting.text}</span>
-                    </motion.p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                    <div className="flex flex-col gap-1.5">
+                        <motion.p
+                            initial={{ opacity: 0, y: -8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                            className="text-[10px] sm:text-[11px] font-bold tracking-[0.25em] text-slate-500 uppercase flex items-center gap-2"
+                        >
+                            <span>{greeting.emoji}</span>
+                            <span>{greeting.text}</span>
+                        </motion.p>
 
-                    <motion.h1
-                        initial={{ opacity: 0, y: -6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.55, delay: 0.06, ease: [0.16, 1, 0.3, 1] }}
-                        className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight leading-tight"
-                    >
-                        <span className="text-primary-500">{user?.first_name || 'Student'}</span>
-                    </motion.h1>
+                        <motion.h1
+                            initial={{ opacity: 0, y: -6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.55, delay: 0.06, ease: [0.16, 1, 0.3, 1] }}
+                            className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight leading-tight"
+                        >
+                            <span className="text-primary-500">{user?.first_name || 'Student'}</span>
+                        </motion.h1>
 
-                    <motion.p
-                        initial={{ opacity: 0, y: -4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
-                        className="text-slate-400 text-xs sm:text-sm font-medium mt-0.5 italic"
-                    >
-                        &ldquo;Be consistent in marking attendance, so you can be consistent in your life.&rdquo;
-                    </motion.p>
+                        <motion.p
+                            initial={{ opacity: 0, y: -4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.6, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
+                            className="text-slate-400 text-xs sm:text-sm font-medium mt-0.5 italic"
+                        >
+                            &ldquo;Be consistent in marking attendance, so you can be consistent in your life.&rdquo;
+                        </motion.p>
+                    </div>
+
+                    {user?.profile?.streak_count > 0 && (
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 17, delay: 0.3 }}
+                            className="flex items-center gap-3 bg-orange-500/10 border border-orange-500/20 px-5 py-3 rounded-2xl cursor-default group hover:bg-orange-500/20 transition-all duration-300 self-start sm:self-auto"
+                        >
+                            <div className="relative">
+                                <Flame size={24} className="text-orange-500 animate-pulse relative z-10" />
+                                <div className="absolute inset-0 bg-orange-500/50 blur-lg rounded-full animate-pulse"></div>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-black text-orange-500/70 tracking-widest uppercase leading-none mb-1.5">Attendance Streak</p>
+                                <p className="text-xl font-black text-orange-500 tracking-tighter leading-none">{user.profile.streak_count} <span className="text-xs font-bold">Days</span></p>
+                            </div>
+                        </motion.div>
+                    )}
                 </div>
             </div>
         </Reveal>
 
 
         <Reveal width="100%">
-            <div className="space-y-3">
-                {subjectStats.filter(s => s.percentage < 85).map(s => (
-                    <div key={s.subject_id} className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-2xl flex items-center gap-3 text-rose-500 animate-pulse">
-                        <ShieldAlert size={20} className="shrink-0" />
-                        <p className="text-[11px] font-bold tracking-tight">
-                            Your attendance in <span className="underline decoration-2">{s.subject_name}</span> is below 85%. Attend class daily to maintain attendance!
-                        </p>
-                    </div>
-                ))}
+            <div className="space-y-4">
+                <PathToSuccess overallStats={overallStats} />
+                
+                <AchievementsSection badges={user?.profile?.badges} />
+
+                <div className="space-y-3">
+                    {subjectStats.filter(s => s.percentage < 85).map(s => (
+                        <div key={s.subject_id} className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-2xl flex items-center gap-3 text-rose-500 animate-pulse">
+                            <ShieldAlert size={20} className="shrink-0" />
+                            <p className="text-[11px] font-bold tracking-tight">
+                                Your attendance in <span className="underline decoration-2">{s.subject_name}</span> is below 85%. Attend class daily to maintain attendance!
+                            </p>
+                        </div>
+                    ))}
+                </div>
             </div>
         </Reveal>
 
@@ -341,11 +497,16 @@ const MarkView = ({ marking, markAttendance, message }) => {
         }
     };
 
-    useEffect(() => { fetchActiveSessions(); }, []);
+    useEffect(() => { 
+        fetchActiveSessions(); 
+        // 60s Poll for New Sessions
+        const interval = setInterval(fetchActiveSessions, 60000);
+        return () => clearInterval(interval);
+    }, []);
 
     const handleMark = async () => {
         if (!selectedSession || selectedSession.already_marked || marking) return;
-        const success = await markAttendance(selectedSession.subject_id, selectedSession.subject_name);
+        const success = await markAttendance(selectedSession.subject_id, selectedSession.location_name);
         if (success) fetchActiveSessions();   // refresh to show "Already Marked"
     };
 
@@ -643,34 +804,82 @@ const StatsView = ({ subjectStats }) => (
 
 );
 
-const ProfileView = ({ user, setIsMobileMenuOpen }) => (
-    <motion.div 
-        variants={sectionVariants}
-        initial="initial"
-        animate="animate"
-        exit="exit"
-        className="max-w-4xl mx-auto space-y-6 md:space-y-8"
-    >
-        <Reveal width="100%">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-xl md:text-3xl font-bold tracking-tight text-white">Student <span className="text-primary-500">Profile</span></h1>
+const ProfileView = ({ user, academicData, onUpdate }) => {
+    const { updateUser } = useAuth();
+    const { addNotification } = useNotification();
+    const [isEditing, setIsEditing] = useState(false);
+    const [formData, setFormData] = useState({
+        first_name: user.first_name || '',
+        phone_no: user.profile?.phone_no || '',
+        domain: user.profile?.domain || '',
+        branch: user.profile?.branch || '',
+        semester: user.profile?.semester || ''
+    });
 
-                    <p className="text-slate-400 text-[10px] md:text-sm mt-1">Your registered academic and personal information</p>
-                </div>
-                <div className="px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-2 text-emerald-500 font-bold text-[10px] tracking-widest self-start md:self-auto">
-                    <ShieldCheck size={14} className="md:size-[16px]" /> Verified Profile
-                </div>
-            </div>
-        </Reveal>
+    const { domains, branches, semesters } = academicData;
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
-            {/* Personal Details */}
+    const handleSave = async () => {
+        try {
+            const response = await api.patch('students/me/', formData);
+            updateUser({
+                ...user,
+                first_name: response.data.first_name,
+                profile: response.data
+            });
+            onUpdate(); // Trigger refresh of analytics
+            addNotification("Profile updated successfully", "success");
+            setIsEditing(false);
+        } catch (err) {
+            addNotification(err.response?.data?.error || "Failed to update profile", "error");
+        }
+    };
+
+    return (
+        <div className="space-y-6 md:space-y-8 pb-12">
+            {/* Profile Header */}
+            <Reveal width="100%">
+                <div className="glass-card rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-10 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-primary-500/5 rounded-full blur-3xl -mr-32 -mt-32 group-hover:bg-primary-500/10 transition-all duration-700"></div>
+                    
+                    <div className="flex flex-col md:flex-row items-center gap-6 md:gap-10 relative z-10">
+                        <div className="relative">
+                            <div className="w-24 h-24 md:w-32 md:h-32 bg-slate-800 rounded-[2rem] flex items-center justify-center text-primary-500 font-bold text-3xl md:text-5xl shadow-2xl border border-white/5 group-hover:scale-105 transition-transform duration-500">
+                                {user.first_name?.[0] || 'S'}
+                            </div>
+                            <div className="absolute -bottom-2 -right-2 w-8 h-8 md:w-10 md:h-10 bg-primary-600 rounded-2xl flex items-center justify-center text-white shadow-xl border-4 border-[#020617]">
+                                <ShieldCheck size={18} />
+                            </div>
+                        </div>
+
+                        <div className="text-center md:text-left flex-1">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div>
+                                    <h2 className="text-2xl md:text-4xl font-black text-white tracking-tight leading-tight mb-1">{user.first_name} {user.last_name}</h2>
+                                    <p className="text-primary-500 text-[10px] md:text-xs font-bold uppercase tracking-[0.4em] opacity-80 mb-4 md:mb-0">Verified Student Delegate</p>
+                                </div>
+                                <button 
+                                    onClick={() => isEditing ? handleSave() : setIsEditing(true)}
+                                    className={`px-6 py-3 rounded-2xl font-bold text-[10px] uppercase tracking-widest transition-all shadow-xl flex items-center gap-2 ${
+                                        isEditing 
+                                        ? 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-500/20' 
+                                        : 'bg-white text-slate-900 hover:bg-slate-100'
+                                    }`}
+                                >
+                                    {isEditing ? <CheckCircle size={16} /> : <Pencil size={16} />}
+                                    {isEditing ? 'Save Changes' : 'Modify Profile'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </Reveal>
+
+            {/* Identity Cards */}
             <Reveal delay={0.1} width="100%">
                 <div className="glass-card rounded-[2rem] md:rounded-[2.5rem] p-5 md:p-8 space-y-5 md:space-y-6 shadow-xl relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary-600/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-primary-600/10 transition-all"></div>
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-primary-500/10 transition-all"></div>
                     <div className="flex items-center gap-3 pb-3 md:pb-4 border-b border-slate-800 relative z-10">
-                        <div className="p-1.5 md:p-2 bg-primary-600/10 rounded-lg text-primary-500">
+                        <div className="p-1.5 md:p-2 bg-primary-500/10 rounded-lg text-primary-500">
                             <User size={18} className="md:size-[20px]" />
                         </div>
                         <h3 className="font-bold text-base md:text-lg tracking-tight text-white">Identity Matrix</h3>
@@ -678,11 +887,20 @@ const ProfileView = ({ user, setIsMobileMenuOpen }) => (
                     
                     <div className="space-y-5 md:space-y-6 relative z-10">
                         <div>
-                            <p className="text-[9px] md:text-[10px] text-slate-500 font-bold tracking-[0.2em] mb-1.5 opacity-60">Full Name</p>
-                            <p className="text-white font-bold text-lg md:text-xl tracking-tight leading-tight">{user.first_name} {user.last_name}</p>
+                            <p className="text-[9px] md:text-[10px] text-slate-500 font-bold tracking-[0.2em] mb-1.5 opacity-60 uppercase">Full Name</p>
+                            {isEditing ? (
+                                <input 
+                                    type="text"
+                                    value={formData.first_name}
+                                    onChange={(e) => setFormData({...formData, first_name: e.target.value})}
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white font-bold focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-all"
+                                />
+                            ) : (
+                                <p className="text-white font-bold text-lg md:text-xl tracking-tight leading-tight">{user.first_name} {user.last_name}</p>
+                            )}
                         </div>
                         <div>
-                            <p className="text-[9px] md:text-[10px] text-slate-500 font-bold tracking-[0.2em] mb-1.5 opacity-60">Identity / Registration No</p>
+                            <p className="text-[9px] md:text-[10px] text-slate-500 font-bold tracking-[0.2em] mb-1.5 opacity-60 uppercase">Identity / Registration No</p>
                             <div className="inline-block px-3 py-1 bg-slate-800 rounded-lg border border-slate-700">
                                 <p className="text-white font-mono text-base md:text-lg font-bold text-primary-400 tracking-widest">{user.username}</p>
                             </div>
@@ -693,8 +911,17 @@ const ProfileView = ({ user, setIsMobileMenuOpen }) => (
                                 <p className="text-slate-200 text-[11px] md:text-xs font-bold truncate">{user.email}</p>
                             </div>
                             <div className="p-3 md:p-4 bg-slate-800/40 rounded-xl md:rounded-2xl border border-slate-800 hover:border-slate-700 transition-all">
-                                <p className="text-[8px] md:text-[9px] text-slate-500 font-bold tracking-widest mb-1.5 flex items-center gap-1.5"><Phone size={10} className="text-primary-500 md:size-[12px]" /> Phone Contact</p>
-                                <p className="text-slate-200 text-[11px] md:text-xs font-bold">{user.profile?.phone_no || 'Not Linked'}</p>
+                                <p className="text-[8px] md:text-[9px] text-slate-500 font-bold tracking-widest mb-1.5 flex items-center gap-1.5 uppercase"><Phone size={10} className="text-primary-500 md:size-[12px]" /> Phone Contact</p>
+                                {isEditing ? (
+                                    <input 
+                                        type="text"
+                                        value={formData.phone_no}
+                                        onChange={(e) => setFormData({...formData, phone_no: e.target.value})}
+                                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-xs font-bold outline-none"
+                                    />
+                                ) : (
+                                    <p className="text-slate-200 text-[11px] md:text-xs font-bold">{user.profile?.phone_no || 'Not Linked'}</p>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -717,55 +944,73 @@ const ProfileView = ({ user, setIsMobileMenuOpen }) => (
                             <div className="w-10 h-10 md:w-12 md:h-12 bg-primary-600/10 rounded-lg md:rounded-xl flex items-center justify-center text-primary-500 shrink-0 shadow-lg">
                                 <Building size={20} className="md:size-[24px]" />
                             </div>
-                            <div className="min-w-0">
-                                <p className="text-[9px] md:text-[10px] text-slate-500 font-bold tracking-widest opacity-60">Enrolled Branch / Stream</p>
-                                <p className="text-white font-bold text-base md:text-lg tracking-tight truncate leading-tight">{user.profile?.branch_name || 'N/A'}</p>
+                            <div className="min-w-0 flex-1">
+                                <p className="text-[9px] md:text-[10px] text-slate-500 font-bold tracking-widest opacity-60 uppercase">Enrolled Branch / Stream</p>
+                                {isEditing ? (
+                                    <div className="mt-1">
+                                        <CustomSelect 
+                                            options={branches}
+                                            value={formData.branch}
+                                            onChange={(val) => setFormData({...formData, branch: val})}
+                                            placeholder="Select Branch"
+                                        />
+                                    </div>
+                                ) : (
+                                    <p className="text-white font-bold text-base md:text-lg tracking-tight truncate leading-tight">{user.profile?.branch_name || 'N/A'}</p>
+                                )}
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-                            <div className="flex items-center gap-3 p-3 md:p-4 bg-slate-800/30 rounded-xl border border-slate-800">
-                                <div className="w-8 h-8 md:w-10 md:h-10 bg-amber-500/10 rounded-lg md:rounded-xl flex items-center justify-center text-amber-500 shrink-0">
-                                    <Globe size={16} className="md:size-[20px]" />
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="text-[8px] md:text-[9px] text-slate-500 font-bold tracking-widest mb-0.5 opacity-60 leading-none">Domain</p>
-                                    <p className="text-white font-bold text-xs md:text-sm tracking-tight truncate">{user.profile?.domain_name || 'N/A'}</p>
-                                </div>
+                        <div className="flex items-center gap-3 md:gap-4 p-4 md:p-5 bg-slate-800/30 rounded-xl md:rounded-2xl border border-slate-800 shadow-inner group-hover:border-slate-700 transition-all">
+                            <div className="w-10 h-10 md:w-12 md:h-12 bg-amber-500/10 rounded-lg md:rounded-xl flex items-center justify-center text-amber-500 shrink-0 shadow-lg">
+                                <Globe size={20} className="md:size-[24px]" />
                             </div>
-                            <div className="flex items-center gap-3 p-3 md:p-4 bg-slate-800/30 rounded-xl border border-slate-800">
-                                <div className="w-8 h-8 md:w-10 md:h-10 bg-indigo-500/10 rounded-lg md:rounded-xl flex items-center justify-center text-indigo-500 shrink-0">
-                                    <LayoutDashboard size={16} className="md:size-[20px]" />
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="text-[8px] md:text-[9px] text-slate-500 font-bold tracking-widest mb-0.5 opacity-60 leading-none">Semester</p>
-                                    <p className="text-white font-bold text-xs md:text-sm tracking-tight truncate">{user.profile?.semester_name || 'N/A'}</p>
-                                </div>
+                            <div className="min-w-0 flex-1">
+                                <p className="text-[9px] md:text-[10px] text-slate-500 font-bold tracking-widest opacity-60 uppercase">Domain</p>
+                                {isEditing ? (
+                                    <div className="mt-1">
+                                        <CustomSelect 
+                                            options={domains}
+                                            value={formData.domain}
+                                            onChange={(val) => setFormData({...formData, domain: val})}
+                                            placeholder="Select Domain"
+                                        />
+                                    </div>
+                                ) : (
+                                    <p className="text-white font-bold text-base md:text-lg tracking-tight truncate leading-tight">{user.profile?.domain_name || 'N/A'}</p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 md:gap-4 p-4 md:p-5 bg-slate-800/30 rounded-xl md:rounded-2xl border border-slate-800 shadow-inner group-hover:border-slate-700 transition-all">
+                            <div className="w-10 h-10 md:w-12 md:h-12 bg-indigo-500/10 rounded-lg md:rounded-xl flex items-center justify-center text-indigo-500 shrink-0 shadow-lg">
+                                <LayoutDashboard size={20} className="md:size-[24px]" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <p className="text-[9px] md:text-[10px] text-slate-500 font-bold tracking-widest opacity-60 uppercase">Semester</p>
+                                {isEditing ? (
+                                    <div className="mt-1">
+                                        <CustomSelect 
+                                            options={semesters}
+                                            value={formData.semester}
+                                            onChange={(val) => setFormData({...formData, semester: val})}
+                                            placeholder="Select Semester"
+                                        />
+                                    </div>
+                                ) : (
+                                    <p className="text-white font-bold text-base md:text-lg tracking-tight truncate leading-tight">{user.profile?.semester_name || 'N/A'}</p>
+                                )}
                             </div>
                         </div>
                     </div>
                 </div>
             </Reveal>
         </div>
-
-        <Reveal delay={0.3} width="100%">
-            <div className="bg-primary-600/5 border border-primary-600/10 p-5 rounded-2xl flex items-start gap-4">
-                <div className="p-2 bg-primary-600 rounded-xl text-white shadow-lg shadow-primary-600/20">
-                    <Info size={18} />
-                </div>
-                <div>
-                    <p className="text-xs font-bold text-white mb-1">Standard Security Protocol</p>
-                    <p className="text-[10px] text-slate-400 font-medium leading-relaxed">Your profile information is strictly managed by the academic administration. To update any details like mobile number or branch, please visit the HOD/Admin office with valid proof.</p>
-                </div>
-            </div>
-        </Reveal>
-    </motion.div>
-
-);
+    );
+};
 
 const StudentDashboard = () => {
-    const { user, logout } = useAuth();
-    const { addNotification } = useNotification();
+    const { user, logout, updateUser } = useAuth();
     const { setIsLoading } = useLoading();
     const location = useLocation();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -778,25 +1023,55 @@ const StudentDashboard = () => {
     const [marking, setMarking] = useState(false);
     const [message, setMessage] = useState({ text: '', type: '' });
     const [overallStats, setOverallStats] = useState({ present: 0, absent: 0, percentage: 0 });
+    const [analytics, setAnalytics] = useState(null);
+    const [academicData, setAcademicData] = useState({ domains: [], branches: [], semesters: [] });
 
+    const fetchAnalytics = async () => {
+        try {
+            const response = await api.get('students/analytics/');
+            setAnalytics(response.data);
+        } catch (err) { console.error("Analytics fetch error", err); }
+    };
+
+    const fetchProfile = async () => {
+        try {
+            const response = await api.get('students/me/');
+            // Sync the fresh profile data (including badges and streaks) to AuthContext
+            updateUser({ profile: response.data });
+        } catch (err) { console.error("Profile fetch error", err); }
+    };
+
+    const fetchAcademicMetadata = async () => {
+        try {
+            const [d, b, s] = await Promise.all([
+                api.get('domains/'),
+                api.get('branches/'),
+                api.get('semesters/')
+            ]);
+            setAcademicData({ domains: d.data, branches: b.data, semesters: s.data });
+        } catch (err) { console.error("Metadata fetch error", err); }
+    };
 
     useEffect(() => {
         const handleResize = () => setIsLargeScreen(window.innerWidth >= 1024);
         window.addEventListener('resize', handleResize);
+        
         const fetchAllData = async () => {
             setIsLoading(true);
             try {
                 const [attRes, statsRes, holRes] = await Promise.all([
                     api.get('attendance/student_history/'),
                     api.get('attendance/my_subject_stats/'),
-                    api.get('holidays/')
+                    api.get('holidays/'),
+                    fetchAnalytics(),
+                    fetchAcademicMetadata(),
+                    fetchProfile()
                 ]);
 
                 setAttendance(Array.isArray(attRes.data) ? attRes.data : []);
                 setSubjectStats(Array.isArray(statsRes.data) ? statsRes.data : []);
                 setHolidays(Array.isArray(holRes.data) ? holRes.data : []);
 
-                // Calculate overall stats from subject stats
                 const totalPresent = statsRes.data.reduce((acc, s) => acc + s.present, 0);
                 const totalSessions = statsRes.data.reduce((acc, s) => acc + s.total, 0);
                 const perc = totalSessions > 0 ? (totalPresent / totalSessions * 100) : 0;
@@ -807,27 +1082,20 @@ const StudentDashboard = () => {
                     percentage: Math.round(perc)
                 });
 
-                // Check for consecutive absence warnings — group by UNIQUE DATES first.
-                // History has multiple records per day (one per subject), so we must
-                // deduplicate by date before checking. A "day" counts as absent only
-                // if every record on that date is absent (student didn't attend anything).
                 const threeDaysAgo = new Date();
                 threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
                 threeDaysAgo.setHours(0, 0, 0, 0);
 
-                // Build a map: date → [ statuses ]
                 const dateStatusMap = {};
                 for (const rec of attRes.data) {
                     if (!dateStatusMap[rec.date]) dateStatusMap[rec.date] = [];
                     dateStatusMap[rec.date].push(rec.status);
                 }
 
-                // Sort unique dates descending, keep only ones within last 3 days
                 const recentDates = Object.keys(dateStatusMap)
                     .filter(d => new Date(d) >= threeDaysAgo)
                     .sort((a, b) => new Date(b) - new Date(a));
 
-                // A day is "fully absent" when no present record exists for that day
                 const fullyAbsent = (d) => !dateStatusMap[d].includes('present');
 
                 if (recentDates.length >= 2 && fullyAbsent(recentDates[0]) && fullyAbsent(recentDates[1])) {
@@ -844,9 +1112,7 @@ const StudentDashboard = () => {
     }, []);
 
 
-    // markAttendance now accepts (subjectId, subjectName) from MarkView
-    // and returns true on success so MarkView can refresh its session state
-    const markAttendance = async (subjectId, subjectName) => {
+    const markAttendance = async (subjectId, className) => {
         setMarking(true);
         setMessage({ text: 'Verifying location...', type: 'info' });
 
@@ -864,12 +1130,11 @@ const StudentDashboard = () => {
             const position = await getPosition();
             const { latitude, longitude } = position.coords;
             const response = await api.post('attendance/mark_attendance/', {
-                latitude, longitude, subject_id: subjectId, class_name: subjectName
+                latitude, longitude, subject_id: subjectId, class_name: className
             });
 
             setMessage({ text: response.data.message, type: 'success' });
 
-            // Refresh stats
             const statsUpdate = await api.get('attendance/my_subject_stats/');
             setSubjectStats(statsUpdate.data);
             const totalPresent = statsUpdate.data.reduce((acc, s) => acc + s.present, 0);
@@ -880,7 +1145,10 @@ const StudentDashboard = () => {
             const attUpdate = await api.get('attendance/student_history/');
             setAttendance(attUpdate.data);
 
-            return true;   // signal success to MarkView
+            // Trigger profile refresh to sync new streaks/badges immediately
+            fetchProfile();
+
+            return true;
         } catch (err) {
             const isGeoError = err && err.code && [1, 2, 3].includes(err.code);
             const errorMsg = isGeoError
@@ -905,11 +1173,6 @@ const StudentDashboard = () => {
                         <img src={logo} alt="Logo" className="w-full h-full object-contain" />
                     </div>
                     <span className="font-bold text-lg sm:text-xl tracking-tight flex items-baseline text-white italic">TAP<span className="text-2xl sm:text-3xl font-bold not-italic">2</span><span className="text-primary-500 font-bold">PRESENT</span></span>
-
-
-
-
-
                 </div>
                 {!isMobileMenuOpen && (
                     <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 text-slate-300 hover:text-white shrink-0">
@@ -934,12 +1197,7 @@ const StudentDashboard = () => {
                         </div>
                     <div>
                         <h2 className="font-bold text-xl tracking-tight leading-none text-white flex items-baseline italic">TAP<span className="text-3xl not-italic">2</span><span className="text-primary-500">PRESENT</span></h2>
-
-
-
-
                         <p className="text-[9px] text-primary-500 font-bold mt-1">Student Portal</p>
-
                     </div>
                 </div>
                 <motion.button 
@@ -1002,7 +1260,7 @@ const StudentDashboard = () => {
             </AnimatePresence>
 
             {/* Main Content Area */}
-            <main className="flex-1 lg:p-10 p-4 sm:p-6 pt-20 lg:pt-10 overflow-y-auto w-full relative z-10 custom-scrollbar">
+            <main className="flex-1 p-4 sm:p-6 lg:p-10 pt-28 lg:pt-28 overflow-y-auto w-full relative z-10 custom-scrollbar">
                 <div className="w-full h-full">
                     <AnimatePresence mode="wait">
                     <Routes>
@@ -1010,7 +1268,16 @@ const StudentDashboard = () => {
                         <Route path="mark" element={<MarkView marking={marking} markAttendance={markAttendance} message={message} />} />
                         <Route path="history" element={<HistoryView attendance={attendance} />} />
                         <Route path="stats" element={<StatsView subjectStats={subjectStats} />} />
-                        <Route path="profile" element={<ProfileView user={user} setIsMobileMenuOpen={setIsMobileMenuOpen} />} />
+                        <Route 
+                            path="profile" 
+                            element={
+                                <ProfileView 
+                                    user={user} 
+                                    academicData={academicData} 
+                                    onUpdate={fetchAnalytics} 
+                                />
+                            } 
+                        />
                         <Route path="/" element={<OverviewView subjectStats={subjectStats} overallStats={overallStats} attendance={attendance} holidays={holidays} user={user} />} />
                     </Routes>
                 </AnimatePresence>

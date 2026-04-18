@@ -44,15 +44,32 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     domain_name = serializers.ReadOnlyField(source='domain.name')
     branch_name = serializers.ReadOnlyField(source='branch.name')
     semester_name = serializers.ReadOnlyField(source='semester.name')
+    streak_count = serializers.SerializerMethodField()
+    badges = serializers.SerializerMethodField()
     
     class Meta:
         model = StudentProfile
         fields = [
             'id', 'user', 'user_details', 'first_name', 'email', 
             'registration_no', 'phone_no', 'domain', 'domain_name', 
-            'branch', 'branch_name', 'semester', 'semester_name', 'is_approved', 'approval_date'
+            'branch', 'branch_name', 'semester', 'semester_name', 
+            'is_approved', 'approval_date', 'streak_count', 'badges'
         ]
         read_only_fields = ['user']
+
+    def get_streak_count(self, obj):
+        try:
+            from .views.analytics import calculate_streak
+            return calculate_streak(obj)
+        except ImportError:
+            return 0
+
+    def get_badges(self, obj):
+        try:
+            from .views.analytics import calculate_badges
+            return calculate_badges(obj)
+        except ImportError:
+            return []
 
     def get_user_details(self, obj):
         return {

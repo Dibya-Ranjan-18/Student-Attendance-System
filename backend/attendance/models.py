@@ -94,7 +94,7 @@ class AttendanceRecord(models.Model):
     longitude = models.FloatField(null=True, blank=True)
 
     class Meta:
-        unique_together = ('student', 'date', 'subject')
+        unique_together = ('student', 'date', 'subject', 'class_name')
 
     def __str__(self):
         return f"{self.student.registration_no} - {self.date} - {self.subject.name if self.subject else 'General'} - {self.status}"

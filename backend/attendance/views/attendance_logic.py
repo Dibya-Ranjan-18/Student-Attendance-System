@@ -571,9 +571,22 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         except: target_date = date.today()
 
         profile = get_object_or_404(StudentProfile, id=student_id)
+        
+        # Validation: Cannot mark attendance before student was approved
+        if profile.approval_date and target_date < profile.approval_date:
+            return Response({
+                "error": f"Invalid Date: Registration for this student was approved on {profile.approval_date}. You cannot mark attendance for a date before their approval."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         subject = Subject.objects.filter(id=subject_id).first()
         
         if not subject: return Response({"error": "Subject required"}, status=400)
+
+        # Lock modifications to Today only
+        if target_date != date.today():
+            return Response({
+                "error": "Historical Modification Restricted: Attendance for past dates is read-only. You can only toggle status for the current day."
+            }, status=status.HTTP_403_FORBIDDEN)
 
         record, created = AttendanceRecord.objects.update_or_create(
             student=profile, date=target_date, subject=subject,
@@ -592,6 +605,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         semester_id = request.query_params.get('semester')
         start_date_str = request.query_params.get('start_date')
         end_date_str = request.query_params.get('end_date')
+        single_date_str = request.query_params.get('date')
 
         # --- Build queryset ---
         records_qs = AttendanceRecord.objects.select_related(
@@ -604,18 +618,26 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             records_qs = records_qs.filter(student__branch_id=branch_id)
         if semester_id:
             records_qs = records_qs.filter(student__semester_id=semester_id)
-        if start_date_str:
+        
+        if single_date_str:
             try:
-                start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-                records_qs = records_qs.filter(date__gte=start_date)
+                target_date = datetime.strptime(single_date_str, '%Y-%m-%d').date()
+                records_qs = records_qs.filter(date=target_date)
             except ValueError:
                 pass
-        if end_date_str:
-            try:
-                end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-                records_qs = records_qs.filter(date__lte=end_date)
-            except ValueError:
-                pass
+        else:
+            if start_date_str:
+                try:
+                    start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+                    records_qs = records_qs.filter(date__gte=start_date)
+                except ValueError:
+                    pass
+            if end_date_str:
+                try:
+                    end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+                    records_qs = records_qs.filter(date__lte=end_date)
+                except ValueError:
+                    pass
 
         # --- Create workbook ---
         wb = openpyxl.Workbook()

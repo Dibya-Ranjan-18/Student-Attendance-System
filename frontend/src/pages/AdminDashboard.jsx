@@ -43,7 +43,13 @@ const AdminDashboard = () => {
         };
         fetchStats();
 
-        return () => window.removeEventListener('resize', handleResize);
+        // 60s Poll for Stats
+        const statsInterval = setInterval(fetchStats, 60000);
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            clearInterval(statsInterval);
+        };
     }, []);
 
 
@@ -141,7 +147,7 @@ const AdminDashboard = () => {
             </AnimatePresence>
 
             {/* Main Content Area */}
-            <main className="flex-1 lg:p-10 p-3.5 sm:p-6 pt-24 lg:pt-10 overflow-y-auto w-full relative z-10 custom-scrollbar">
+            <main className="flex-1 lg:p-10 p-3.5 sm:p-6 pt-28 lg:pt-28 overflow-y-auto w-full relative z-10 custom-scrollbar">
                 <div className="w-full h-full">
                     <AnimatePresence mode="wait">
                     <Routes>
@@ -241,6 +247,8 @@ const sidebarVariants = {
 };
 
 const Overview = ({ stats }) => {
+    const [trendView, setTrendView] = useState('daily');
+    const chartData = stats[`${trendView}_stats` ] || stats.daily_stats || [];
 
     return (
         <motion.div 
@@ -261,10 +269,27 @@ const Overview = ({ stats }) => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
                 <div className="glass-card p-5 md:p-8 rounded-[2rem] md:rounded-[2.5rem]">
-                    <h3 className="text-lg font-bold mb-6 tracking-tight">Attendance Trends</h3>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                        <h3 className="text-lg font-bold tracking-tight">Attendance Trends</h3>
+                        <div className="flex bg-slate-900/50 p-1 rounded-xl border border-white/5 self-start sm:self-auto">
+                            {['daily', 'weekly', 'monthly'].map((view) => (
+                                <button
+                                    key={view}
+                                    onClick={() => setTrendView(view)}
+                                    className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-[0.15em] transition-all duration-300 ${
+                                        trendView === view 
+                                        ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/30' 
+                                        : 'text-slate-500 hover:text-slate-300'
+                                    }`}
+                                >
+                                    {view}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                     <div className="h-[220px] md:h-[300px] mt-4">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={stats.daily_stats} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="colorPresent" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.3}/>
@@ -352,15 +377,24 @@ const Overview = ({ stats }) => {
 };
 
 const Requests = () => {
-    const { addNotification } = useNotification();
+    const { addNotification, confirm } = useNotification();
     const [requests, setRequests] = useState([]);
+    const [selectedIds, setSelectedIds] = useState([]);
+    const [isProcessing, setIsProcessing] = useState(false);
+
     const fetchRequests = async () => {
         try {
             const response = await api.get('requests/');
             setRequests(response.data.results || response.data);
+            setSelectedIds([]); // Reset selection on refresh
         } catch (err) { console.error("Failed to fetch requests", err); }
     };
-    useEffect(() => { fetchRequests(); }, []);
+    useEffect(() => { 
+        fetchRequests(); 
+        // 60s Poll for New Requests
+        const interval = setInterval(fetchRequests, 60000);
+        return () => clearInterval(interval);
+    }, []);
 
     const handleAction = async (id, action) => {
         try {
@@ -370,16 +404,124 @@ const Requests = () => {
         } catch (err) { addNotification("Failed to " + action, "error"); }
     };
 
+    const handleBulkAction = async (action) => {
+        if (selectedIds.length === 0) return;
+        
+        const confirmed = await confirm(
+            `Bulk ${action === 'approve' ? 'Approval' : 'Rejection'}`,
+            `Are you sure you want to ${action} ${selectedIds.length} student requests at once?`
+        );
+        
+        if (!confirmed) return;
+
+        setIsProcessing(true);
+        try {
+            const response = await api.post('requests/bulk_action/', {
+                ids: selectedIds,
+                action: action
+            });
+            addNotification(response.data.message || "Successfully processed requests", "success");
+            fetchRequests();
+        } catch (err) {
+            const errorMsg = err.response?.data?.error || err.response?.data?.message || "Bulk action failed. Please try again.";
+            addNotification(errorMsg, "error");
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const toggleSelect = (id) => {
+        setSelectedIds(prev => 
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.length === requests.length) {
+            setSelectedIds([]);
+        } else {
+            setSelectedIds(requests.map(r => r.id));
+        }
+    };
+
     return (
         <motion.div {...sectionVariants} className="space-y-6">
-            <h1 className="text-xl md:text-3xl font-bold tracking-tight text-center sm:text-left text-white">Access <span className="text-primary-500">Requests</span></h1>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-xl md:text-3xl font-bold tracking-tight text-white">Access <span className="text-primary-500">Requests</span></h1>
+                    <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">{requests.length} pending in queue</p>
+                </div>
 
+                {requests.length > 0 && (
+                    <div className="flex items-center gap-3">
+                        <label className="flex items-center gap-2 cursor-pointer group px-4 py-2 bg-slate-800/50 rounded-xl border border-white/5 hover:border-white/10 transition-all">
+                            <div 
+                                onClick={toggleSelectAll}
+                                className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
+                                    selectedIds.length === requests.length && requests.length > 0
+                                    ? 'bg-primary-600 border-primary-600'
+                                    : 'border-slate-600 group-hover:border-slate-500'
+                                }`}
+                            >
+                                {selectedIds.length === requests.length && requests.length > 0 && <Check size={14} strokeWidth={4} className="text-white" />}
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest select-none">Select All</span>
+                        </label>
+                    </div>
+                )}
+            </div>
+
+            {/* Bulk Actions Bar */}
+            <AnimatePresence>
+                {selectedIds.length > 0 && (
+                    <motion.div 
+                        initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                        className="bg-primary-600 rounded-[1.5rem] p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-2xl shadow-primary-600/30 border border-primary-500/50"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white font-black text-sm">
+                                {selectedIds.length}
+                            </div>
+                            <p className="text-sm font-bold text-white tracking-tight">Students selected for bulk processing</p>
+                        </div>
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <button 
+                                onClick={() => handleBulkAction('reject')}
+                                disabled={isProcessing}
+                                className="flex-1 sm:flex-none px-6 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all disabled:opacity-50"
+                            >
+                                Reject Selected
+                            </button>
+                            <button 
+                                onClick={() => handleBulkAction('approve')}
+                                disabled={isProcessing}
+                                className="flex-1 sm:flex-none px-6 py-2.5 bg-white text-primary-600 hover:bg-slate-100 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all shadow-xl disabled:opacity-50"
+                            >
+                                {isProcessing ? 'Processing...' : 'Approve Selected'}
+                            </button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
             
             <div className="space-y-4">
                 {requests.length > 0 ? requests.map(req => (
-                    <div key={req.id} className="glass-card rounded-[1.5rem] md:rounded-[2rem] p-4 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6 transition-all hover:border-primary-500/30 group">
+                    <div 
+                        key={req.id} 
+                        onClick={() => toggleSelect(req.id)}
+                        className={`glass-card rounded-[1.5rem] md:rounded-[2rem] p-4 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6 transition-all cursor-pointer group ${
+                            selectedIds.includes(req.id) ? 'border-primary-500/50 bg-primary-500/5' : 'hover:border-primary-500/30 border-white/5'
+                        }`}
+                    >
                         <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-slate-800 rounded-2xl flex items-center justify-center text-primary-500 font-bold shadow-inner">
+                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ${
+                                selectedIds.includes(req.id) ? 'bg-primary-600 border-primary-600' : 'border-slate-700'
+                            }`}>
+                                {selectedIds.includes(req.id) && <Check size={14} strokeWidth={4} className="text-white" />}
+                            </div>
+                            <div className="w-12 h-12 bg-slate-800 rounded-2xl flex items-center justify-center text-primary-500 font-bold shadow-inner shrink-0 group-hover:scale-105 transition-transform">
                                 {req.full_name?.[0] || 'S'}
                             </div>
                             <div className="overflow-hidden">
@@ -394,16 +536,16 @@ const Requests = () => {
 
                         <div className="flex items-center justify-between md:justify-end gap-3 border-t border-slate-800/50 pt-4 md:border-0 md:pt-0">
                             <p className="md:hidden text-[10px] text-slate-500 font-mono uppercase italic">Requested: {new Date(req.created_at).toLocaleDateString()}</p>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
                                 <button 
                                     onClick={() => handleAction(req.id, 'approve')} 
-                                    className="px-4 py-2 bg-emerald-500/10 text-emerald-500 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all"
+                                    className="px-4 py-2 bg-emerald-500/10 text-emerald-500 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
                                 >
                                     Approve
                                 </button>
                                 <button 
                                     onClick={() => handleAction(req.id, 'reject')} 
-                                    className="px-4 py-2 bg-rose-500/10 text-rose-500 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all"
+                                    className="px-4 py-2 bg-rose-500/10 text-rose-500 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all shadow-sm"
                                 >
                                     Reject
                                 </button>
@@ -411,7 +553,9 @@ const Requests = () => {
                         </div>
                     </div>
                 )) : (
-                    <div className="py-20 text-center glass-card bg-slate-900/10 border-2 border-dashed border-slate-800/50 rounded-[3rem] opacity-50">
+                    <div className="py-24 text-center glass-card bg-slate-900/10 border-2 border-dashed border-slate-800/50 rounded-[3rem] opacity-50 relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-gradient-to-br from-primary-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <Users2 size={48} className="mx-auto mb-4 text-slate-700" />
                         <h3 className="text-xl font-bold text-slate-400 uppercase tracking-tighter">Queue Clear</h3>
                         <p className="text-xs text-slate-500 mt-2 font-bold tracking-widest">No pending registration requests at this time.</p>
                     </div>
@@ -617,10 +761,10 @@ const Students = () => {
                                     <div key={stat.subject_id} className="p-4 rounded-2xl border border-white/5 bg-white/5 hover:border-primary-500/30 transition-all">
                                         <div className="flex justify-between items-center mb-2">
                                             <span className="text-sm font-bold text-white">{stat.subject_name}</span>
-                                            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg ${stat.percentage < 75 ? 'bg-rose-500/20 text-rose-400' : 'bg-emerald-500/20 text-emerald-400'}`}>{stat.percentage}%</span>
+                                            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg ${stat.percentage < 85 ? 'bg-rose-500/20 text-rose-400' : 'bg-emerald-500/20 text-emerald-400'}`}>{stat.percentage}%</span>
                                         </div>
                                         <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
-                                            <div className={`h-full ${stat.percentage < 75 ? 'bg-gradient-to-r from-rose-600 to-rose-400' : 'bg-gradient-to-r from-emerald-600 to-emerald-400'}`} style={{ width: `${stat.percentage}%` }} />
+                                            <div className={`h-full ${stat.percentage < 85 ? 'bg-gradient-to-r from-rose-600 to-rose-400' : 'bg-gradient-to-r from-emerald-600 to-emerald-400'}`} style={{ width: `${stat.percentage}%` }} />
                                         </div>
                                         <p className="text-[9px] text-slate-600 font-mono font-bold tracking-widest uppercase mt-2">{stat.present}/{stat.total} sessions</p>
                                     </div>
@@ -1095,6 +1239,7 @@ const DailyAttendance = () => {
     const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('en-CA')); // en-CA gives YYYY-MM-DD
     const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+    const isToday = selectedDate === new Date().toLocaleDateString('en-CA');
     
     const [filters, setFilters] = useState({ subject: '', branch: '', semester: '', domain: '' });
     const [academicData, setAcademicData] = useState({ subjects: [], branches: [], semesters: [], domains: [] });
@@ -1153,7 +1298,15 @@ const DailyAttendance = () => {
     }, [viewMode, selectedDate, filters, currentMonth, currentYear]);
 
     useEffect(() => { fetchAcademic(); }, [fetchAcademic]);
-    useEffect(() => { fetchReport(); }, [fetchReport]);
+    useEffect(() => { 
+        fetchReport(); 
+        // 30s Poll for Daily Attendance during today
+        let interval;
+        if (viewMode === 'daily' && isToday) {
+            interval = setInterval(fetchReport, 30000);
+        }
+        return () => interval && clearInterval(interval);
+    }, [fetchReport, viewMode, isToday]);
 
     const downloadExcel = async () => {
         const params = new URLSearchParams();
@@ -1354,7 +1507,7 @@ const DailyAttendance = () => {
                                                             <p className="text-[10px] font-bold text-emerald-400/80">{record.time}</p>
                                                             <p className="text-[7px] text-slate-500 font-bold uppercase mt-0.5 truncate max-w-[70px]">{record.subject_name}</p>
                                                         </div>
-                                                        {!reportData.is_holiday && (
+                                                        {!reportData.is_holiday && isToday && (
                                                             <button
                                                                 onClick={() => toggleStatus(record.id, 'present', record.subject_id)}
                                                                 disabled={togglingId === record.id}
@@ -1408,7 +1561,7 @@ const DailyAttendance = () => {
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-2">
-                                                        {!reportData.is_holiday && (
+                                                        {!reportData.is_holiday && isToday && (
                                                             <button 
                                                                 onClick={() => toggleStatus(record.id, 'absent', record.subject_id)} 
                                                                 disabled={togglingId === record.id}
@@ -1468,7 +1621,7 @@ const DailyAttendance = () => {
                                                     );
                                                 })}
                                                 <td className="px-4 py-4 text-center font-bold text-white text-xs">{row.total_present}</td>
-                                                <td className={`px-4 py-4 text-center font-bold text-xs ${row.percentage < 75 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                                <td className={`px-4 py-4 text-center font-bold text-xs ${row.percentage < 85 ? 'text-rose-500' : 'text-emerald-500'}`}>
                                                     {row.percentage}%
                                                 </td>
                                             </tr>

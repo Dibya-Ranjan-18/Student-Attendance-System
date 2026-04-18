@@ -117,12 +117,73 @@ class RegistrationRequestViewSet(viewsets.ModelViewSet):
         reg_request.delete()
         return Response({"message": "Request rejected and cleared from system."})
 
+    @action(detail=False, methods=['post'])
+    def bulk_action(self, request):
+        ids = request.data.get('ids', [])
+        action_type = request.data.get('action') # 'approve' or 'reject'
+        
+        if not ids or action_type not in ['approve', 'reject']:
+            return Response({"error": "Invalid payload. Provide list of ids and an action."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        requests = RegistrationRequest.objects.filter(id__in=ids)
+        success_count = 0
+        skipped = []
+        
+        if action_type == 'approve':
+            for reg_request in requests:
+                try:
+                    # 1. Check if phone number is already taken by ANOTHER student
+                    existing_profile = StudentProfile.objects.filter(phone_no=reg_request.phone_no).first()
+                    if existing_profile and existing_profile.registration_no != reg_request.registration_no:
+                        skipped.append(f"{reg_request.registration_no} (Phone {reg_request.phone_no} already exists)")
+                        continue
+
+                    # 2. Process Approval
+                    user, created = User.objects.get_or_create(
+                        username=reg_request.registration_no,
+                        defaults={
+                            'email': reg_request.email,
+                            'first_name': reg_request.full_name
+                        }
+                    )
+                    user.set_password(reg_request.password)
+                    user.save()
+
+                    StudentProfile.objects.update_or_create(
+                        user=user,
+                        defaults={
+                            'registration_no': reg_request.registration_no,
+                            'phone_no': reg_request.phone_no,
+                            'domain': reg_request.domain,
+                            'branch': reg_request.branch,
+                            'semester': reg_request.semester,
+                            'is_approved': True,
+                            'approval_date': date.today()
+                        }
+                    )
+                    reg_request.delete()
+                    success_count += 1
+                except Exception as e:
+                    skipped.append(f"{reg_request.registration_no} (Error: {str(e)})")
+        else: # reject
+            success_count = requests.count()
+            requests.delete()
+            
+        msg = f"Successfully processed {success_count} requests."
+        if skipped:
+            msg += f" Skipped {len(skipped)} students due to conflicts: {', '.join(skipped[:5])}"
+            if len(skipped) > 5: msg += " ..."
+            
+        return Response({"message": msg, "success_count": success_count, "skipped_count": len(skipped)})
+
 class StudentProfileViewSet(viewsets.ModelViewSet):
     queryset = StudentProfile.objects.all()
     serializer_class = StudentProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_permissions(self):
+        if self.action == 'me':
+            return [permissions.IsAuthenticated()]
         if self.action in ['list', 'retrieve', 'update', 'partial_update', 'destroy']:
             return [permissions.IsAdminUser()]
         return super().get_permissions()
@@ -136,6 +197,27 @@ class StudentProfileViewSet(viewsets.ModelViewSet):
         if branch_id:   qs = qs.filter(branch_id=branch_id)
         if semester_id: qs = qs.filter(semester_id=semester_id)
         return qs
+
+    @action(detail=False, methods=['get', 'patch', 'put'])
+    def me(self, request):
+        profile = getattr(request.user, 'studentprofile', None)
+        if not profile:
+            return Response({"error": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        if request.method == 'GET':
+            serializer = self.get_serializer(profile)
+            return Response(serializer.data)
+        
+        # Students cannot change registration_no or email
+        data = request.data.copy()
+        data.pop('registration_no', None)
+        data.pop('email', None)
+        
+        serializer = self.get_serializer(profile, data=data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=['get'])
     def analytics(self, request):
