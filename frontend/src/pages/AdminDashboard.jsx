@@ -1276,6 +1276,7 @@ const DailyAttendance = () => {
     });
     const [monthlyData, setMonthlyData] = useState({ dates: [], report: [], holidays: {} });
     const [loading, setLoading] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
     const dateRef = useRef(null);
 
     const fetchAcademic = React.useCallback(async () => {
@@ -1525,6 +1526,20 @@ const DailyAttendance = () => {
                 <div className="lg:col-span-3">
                     {viewMode === 'daily' ? (
                         <div className="space-y-6">
+                            {/* Search Bar - Daily */}
+                            <div className="relative group max-w-md">
+                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-primary-500 transition-colors">
+                                    <Search size={18} />
+                                </div>
+                                <input
+                                    type="text"
+                                    placeholder="Search by student name or registration no..."
+                                    className="w-full bg-slate-900/50 border border-slate-800 rounded-2xl pl-11 pr-4 py-3.5 text-xs font-bold text-white outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 transition-all placeholder:text-slate-600 shadow-xl"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+
                             {/* Attendance Lists Split */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 {/* Present Students List */}
@@ -1536,7 +1551,13 @@ const DailyAttendance = () => {
                                         </h3>
                                     </div>
                                     <div className="space-y-4">
-                                        {reportData.present_records?.length > 0 ? reportData.present_records.map(record => (
+                                        {reportData.present_records?.filter(r => 
+                                            r.student_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                            r.registration_no.toLowerCase().includes(searchTerm.toLowerCase())
+                                        ).length > 0 ? reportData.present_records.filter(r => 
+                                            r.student_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                            r.registration_no.toLowerCase().includes(searchTerm.toLowerCase())
+                                        ).map(record => (
                                             <div key={record.id} className="glass-card border border-white/5 rounded-2xl p-4 md:p-5 hover:border-emerald-500/30 transition-all group">
                                                 <div className="flex justify-between items-center">
                                                     <div className="flex items-center gap-3 min-w-0">
@@ -1594,7 +1615,13 @@ const DailyAttendance = () => {
                                         )}
                                     </div>
                                     <div className="space-y-3">
-                                        {reportData.absent_records?.length > 0 ? reportData.absent_records.map(record => (
+                                        {reportData.absent_records?.filter(r => 
+                                            r.student_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                            r.registration_no.toLowerCase().includes(searchTerm.toLowerCase())
+                                        ).length > 0 ? reportData.absent_records.filter(r => 
+                                            r.student_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                            r.registration_no.toLowerCase().includes(searchTerm.toLowerCase())
+                                        ).map(record => (
                                             <div key={record.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-3 md:p-4 hover:border-rose-500/30 transition-all group shadow-sm opacity-80 hover:opacity-100">
                                                 <div className="flex justify-between items-center">
                                                     <div className="flex items-center gap-3">
@@ -1637,7 +1664,24 @@ const DailyAttendance = () => {
                             {!filters.subject ? (
                                 <div className="py-24 text-center text-slate-500 font-bold uppercase tracking-[0.2em] opacity-40">Select subject frequency node</div>
                             ) : (
-                                <div className="overflow-x-auto custom-scrollbar">
+                                <div className="space-y-4">
+                                    {/* Search Bar - Monthly */}
+                                    <div className="p-4 border-b border-slate-800">
+                                        <div className="relative group max-w-sm">
+                                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-primary-500 transition-colors">
+                                                <Search size={16} />
+                                            </div>
+                                            <input
+                                                type="text"
+                                                placeholder="Search student matrix..."
+                                                className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-[11px] font-bold text-white outline-none focus:ring-2 focus:ring-primary-500/30 transition-all placeholder:text-slate-600 outline-none"
+                                                value={searchTerm}
+                                                onChange={(e) => setSearchTerm(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="overflow-x-auto custom-scrollbar">
                                 <table className="w-full text-left">
                                     <thead className="bg-white/5 backdrop-blur-md">
                                         <tr>
@@ -1652,7 +1696,10 @@ const DailyAttendance = () => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-800">
-                                        {monthlyData.report.map(row => (
+                                        {monthlyData.report.filter(r => 
+                                            r.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                            r.reg_no.toLowerCase().includes(searchTerm.toLowerCase())
+                                        ).map(row => (
                                                 <tr key={row.id} className="hover:bg-slate-800/30 transition-colors group/row">
                                                     <td className="px-3 md:px-4 py-4 md:py-5 sticky left-0 bg-slate-900 z-10 border-r border-slate-800">
                                                         <div className="flex items-center justify-between gap-2">
@@ -1696,7 +1743,8 @@ const DailyAttendance = () => {
                                     </tbody>
                                 </table>
                                 </div>
-                            )}
+                            </div>
+                        )}
                         </div>
                     )}
                 </div>
