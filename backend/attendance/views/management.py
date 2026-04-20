@@ -212,6 +212,8 @@ class StudentProfileViewSet(viewsets.ModelViewSet):
         data = request.data.copy()
         data.pop('registration_no', None)
         data.pop('email', None)
+        data.pop('is_approved', None)
+        data.pop('approval_date', None)
         
         serializer = self.get_serializer(profile, data=data, partial=True)
         if serializer.is_valid():

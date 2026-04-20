@@ -1,38 +1,20 @@
 from datetime import date, datetime, timedelta
 from django.db.models import Count, Q, F, ExpressionWrapper, FloatField
 from django.db.models.functions import TruncWeek, TruncMonth
+from django.utils import timezone
 from rest_framework.response import Response
 from ..models import StudentProfile, AttendanceRecord, CollegeLocation, Holiday
 from .attendance_logic import sync_absent_attendance
 
 def get_student_analytics():
-    today = date.today()
+    today = timezone.localtime(timezone.now()).date()
 
     # ------------------------------------------------------------------ #
     #  STEP 1 — Sync absent records FIRST so all queries below see        #
     #           fresh, up-to-date data.                                   #
     # ------------------------------------------------------------------ #
-    # Back-fill absent records for the last 30 days only.
-    # The APScheduler handles full history every 30 min; this covers any gaps
-    # since the last scheduler run without scanning months of history on every load.
-    earliest = StudentProfile.objects.filter(
-        is_approved=True, approval_date__isnull=False
-    ).order_by('approval_date').values_list('approval_date', flat=True).first()
-
-    backfill_start = max(earliest, today - timedelta(days=30)) if earliest else None
-
-    if backfill_start:
-        cursor = backfill_start
-        while cursor < today:
-            # Skip Sundays and holidays
-            if cursor.weekday() != 6 and not Holiday.objects.filter(
-                start_date__lte=cursor, end_date__gte=cursor
-            ).exists():
-                sync_absent_attendance(cursor)
-            cursor += timedelta(days=1)
-
-
     # Sync today (respects the session-end time guard inside the function)
+    # Historical sync (last 30 days) is handled by APScheduler to keep API response fast.
     sync_absent_attendance(today)
 
     # ------------------------------------------------------------------ #

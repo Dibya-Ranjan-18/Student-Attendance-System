@@ -6,7 +6,7 @@ import {
     LogOut, Search, Trash2, Check, X, FileDown, TrendingUp,
     Users2, Calendar, Clock, Filter, FileText, ArrowUpRight, ArrowDownRight,
     ShieldAlert, ShieldCheck, Menu, Library, Pencil, BookOpen, 
-    Building, Globe, ChevronDown, User, Mail, Download
+    Building, Globe, ChevronDown, User, Mail, Download, Zap
 } from 'lucide-react';
 import { 
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -19,6 +19,28 @@ import CustomSelect from '../components/CustomSelect';
 import CustomDatePicker from '../components/CustomDatePicker';
 import CustomTimePicker from '../components/CustomTimePicker';
 import logo from '../assets/logo.png';
+
+const Sparkline = ({ data }) => {
+    const points = data.map((d, i) => {
+        const x = (i / (data.length - 1)) * 100;
+        const y = d === 'P' ? 5 : d === 'A' ? 20 : 15;
+        return `${x},${y}`;
+    }).join(' ');
+
+    return (
+        <svg viewBox="0 0 100 25" className="w-full h-full">
+            <polyline
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                points={points}
+                className="text-emerald-500/50"
+            />
+        </svg>
+    );
+};
 
 const AdminDashboard = () => {
     const { addNotification, confirm } = useNotification();
@@ -1308,9 +1330,14 @@ const DailyAttendance = () => {
         return () => interval && clearInterval(interval);
     }, [fetchReport, viewMode, isToday]);
 
-    const downloadExcel = async () => {
+    const downloadExcel = async (studentId = null) => {
         const params = new URLSearchParams();
-        if (viewMode === 'monthly') {
+        if (studentId) {
+            params.append('mode', 'individual_monthly');
+            params.append('student_id', studentId);
+            params.append('month', currentMonth);
+            params.append('year', currentYear);
+        } else if (viewMode === 'monthly') {
             params.append('mode', 'monthly');
             params.append('month', currentMonth);
             params.append('year', currentYear);
@@ -1335,15 +1362,33 @@ const DailyAttendance = () => {
             window.URL.revokeObjectURL(url);
         } catch (err) {
             console.error("Download failed", err);
-            addNotification("Failed to download Excel file. Please ensure you are logged in.", "error");
+            let errorMsg = "Failed to generate Excel file. Please try again.";
+            
+            if (err.response?.data instanceof Blob) {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    try {
+                        const errorJson = JSON.parse(reader.result);
+                        addNotification(errorJson.error || errorMsg, "error");
+                    } catch (e) {
+                        addNotification(errorMsg, "error");
+                    }
+                };
+                reader.readAsText(err.response.data);
+            } else {
+                errorMsg = err.response?.data?.error || errorMsg;
+                addNotification(errorMsg, "error");
+            }
         }
     };
+    
 
     const [togglingId, setTogglingId] = React.useState(null);
 
-    const toggleStatus = async (studentId, currentStatus, subjectId) => {
+    const toggleStatus = async (studentId, currentStatus, subjectId, overrideDate = null) => {
         const nextStatus = currentStatus === 'present' ? 'absent' : 'present';
         const targetSubject = filters.subject || subjectId;
+        const targetDate = overrideDate || selectedDate;
 
         if (!targetSubject) {
             addNotification("Please select a subject filter first before toggling attendance.", "info");
@@ -1355,11 +1400,11 @@ const DailyAttendance = () => {
             await api.post('attendance/manual_update/', {
                 student_id: studentId,
                 status: nextStatus,
-                date: selectedDate,
+                date: targetDate,
                 subject_id: targetSubject
             });
             addNotification(
-                nextStatus === 'present' ? '✓ Marked Present successfully' : '✗ Marked Absent successfully',
+                `Attendance updated for ${new Date(targetDate).toLocaleDateString('en-GB', {day:'numeric', month:'short'})}`,
                 nextStatus === 'present' ? 'success' : 'info'
             );
             fetchReport();
@@ -1387,6 +1432,7 @@ const DailyAttendance = () => {
                     <button onClick={() => setViewMode('monthly')} className={`px-6 py-2 rounded-xl text-xs font-bold transition-all ${viewMode === 'monthly' ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/20' : 'text-slate-400 hover:text-white'}`}>Monthly View</button>
                 </div>
 
+
                 <div className="flex items-center gap-3">
                     {viewMode === 'daily' ? (
                         <CustomDatePicker 
@@ -1409,7 +1455,7 @@ const DailyAttendance = () => {
                              />
                         </div>
                     )}
-                    <button onClick={downloadExcel} className="p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-primary-500 hover:bg-slate-800 transition-all" title="Download Excel">
+                    <button onClick={() => downloadExcel()} className="p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-primary-500 hover:bg-slate-800 transition-all" title="Download Excel">
                         <FileDown size={20} />
                     </button>
                 </div>
@@ -1563,7 +1609,7 @@ const DailyAttendance = () => {
                                                     <div className="flex items-center gap-2">
                                                         {!reportData.is_holiday && isToday && (
                                                             <button 
-                                                                onClick={() => toggleStatus(record.id, 'absent', record.subject_id)} 
+                                                                onClick={() => toggleStatus(record.id, 'absent', record.subject_id, selectedDate)} 
                                                                 disabled={togglingId === record.id}
                                                                 title="Mark as Present"
                                                                 className="p-2 text-emerald-400 bg-emerald-500/5 hover:bg-emerald-500 hover:text-white rounded-xl transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
@@ -1595,7 +1641,7 @@ const DailyAttendance = () => {
                                 <table className="w-full text-left">
                                     <thead className="bg-white/5 backdrop-blur-md">
                                         <tr>
-                                            <th className="px-3 md:px-6 py-4 md:py-5 text-[9px] md:text-[10px] font-bold text-slate-400 sticky left-0 glass-sidebar z-10 border-r border-white/5 uppercase tracking-widest min-w-[100px] md:min-w-[180px]">Student Matrix</th>
+                                            <th className="px-3 md:px-6 py-4 md:py-5 text-[9px] md:text-[10px] font-bold text-slate-400 sticky left-0 glass-sidebar z-10 border-r border-white/5 uppercase tracking-widest min-w-[140px] md:min-w-[200px]">Student Matrix</th>
                                             {monthlyData.dates.map(d => (
                                                 <th key={d} className={`px-2 py-4 text-[9px] font-bold min-w-[32px] text-center border-r border-slate-800/50 ${monthlyData.holidays[d] ? 'bg-rose-500/10 text-rose-400' : 'text-slate-500'}`}>
                                                     {d.split('-').pop()}
@@ -1607,25 +1653,46 @@ const DailyAttendance = () => {
                                     </thead>
                                     <tbody className="divide-y divide-slate-800">
                                         {monthlyData.report.map(row => (
-                                            <tr key={row.id} className="hover:bg-slate-800/30 transition-colors">
-                                                <td className="px-3 md:px-4 py-3 md:py-4 sticky left-0 bg-slate-900 z-10 border-r border-slate-800 max-w-[100px] md:max-w-none">
-                                                    <p className="text-[10px] md:text-[11px] font-bold text-white whitespace-nowrap truncate">{row.name}</p>
-                                                    <p className="text-[7px] md:text-[8px] text-slate-500 font-mono uppercase font-bold truncate">{row.reg_no}</p>
-                                                </td>
-                                                {monthlyData.dates.map(d => {
-                                                    const status = row.attendance[d];
-                                                    return (
-                                                        <td key={d} className={`px-2 py-4 text-center border-r border-slate-800/50 text-[10px] font-bold ${status === 'P' ? 'text-emerald-500' : status === 'H' ? 'text-rose-400 bg-rose-500/5' : 'text-slate-700'}`}>
-                                                            {status}
-                                                        </td>
-                                                    );
-                                                })}
-                                                <td className="px-4 py-4 text-center font-bold text-white text-xs">{row.total_present}</td>
-                                                <td className={`px-4 py-4 text-center font-bold text-xs ${row.percentage < 85 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                                                    {row.percentage}%
-                                                </td>
-                                            </tr>
-                                        ))}
+                                                <tr key={row.id} className="hover:bg-slate-800/30 transition-colors group/row">
+                                                    <td className="px-3 md:px-4 py-4 md:py-5 sticky left-0 bg-slate-900 z-10 border-r border-slate-800">
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <div className="min-w-0">
+                                                                <p className="text-[10px] md:text-[11px] font-bold text-white whitespace-nowrap truncate">{row.name}</p>
+                                                                <p className="text-[7px] md:text-[8px] text-slate-500 font-mono uppercase font-bold truncate">{row.reg_no}</p>
+                                                            </div>
+                                                            <button 
+                                                                onClick={(e) => { e.stopPropagation(); downloadExcel(row.id); }}
+                                                                className="p-1.5 text-slate-500 hover:text-primary-500 hover:bg-primary-500/10 rounded-lg transition-all"
+                                                                title="Download Student Transcript"
+                                                            >
+                                                                <Download size={12} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                    {monthlyData.dates.map(d => {
+                                                        const status = row.attendance[d];
+                                                        const isFuture = new Date(d) > new Date();
+                                                        return (
+                                                            <td 
+                                                                key={d} 
+                                                                onClick={() => !isFuture && status !== 'H' && toggleStatus(row.id, status === 'P' ? 'present' : 'absent', filters.subject, d)}
+                                                                className={`px-2 py-4 text-center border-r border-slate-800/50 text-[10px] font-bold cursor-pointer transition-all relative
+                                                                    ${status === 'P' ? 'text-emerald-500 hover:bg-emerald-500/10' : 
+                                                                      status === 'A' ? 'text-rose-500 hover:bg-rose-500/10' : 
+                                                                      status === 'H' ? 'text-amber-500/30 bg-amber-500/5' : 'text-slate-800'}
+                                                                    ${togglingId === row.id ? 'opacity-40 animate-pulse' : ''}
+                                                                `}
+                                                            >
+                                                                {status}
+                                                            </td>
+                                                        );
+                                                    })}
+                                                    <td className="px-4 py-4 text-center font-bold text-white text-xs bg-slate-900/50">{row.total_present}</td>
+                                                    <td className={`px-4 py-4 text-center font-bold text-xs sticky right-0 bg-slate-900 z-10 border-l border-slate-800 ${row.percentage < 85 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                                        {row.percentage}%
+                                                    </td>
+                                                </tr>
+                                            ))}
                                     </tbody>
                                 </table>
                                 </div>

@@ -8,7 +8,7 @@ class Domain(models.Model):
         return self.name
 
 class Subject(models.Model):
-    name = models.CharField(max_length=100, unique=True) # e.g. Mathematics
+    name = models.CharField(max_length=100) # e.g. Mathematics
     branch = models.ForeignKey('Branch', on_delete=models.CASCADE, null=True, blank=True)
     semester = models.ForeignKey('Semester', on_delete=models.CASCADE, null=True, blank=True)
     total_students = models.PositiveIntegerField(default=60) # Default class size
@@ -44,7 +44,7 @@ class CollegeLocation(models.Model):
     longitude = models.FloatField()
     radius = models.FloatField(default=100) # radius in meters
     is_active = models.BooleanField(default=True)
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, null=True, blank=True)
+    subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True)
     start_time = models.TimeField(null=True, blank=True)
     end_time = models.TimeField(null=True, blank=True)
     days_of_week = models.CharField(max_length=50, default="0,1,2,3,4,5") # 0=Mon, 6=Sun. Default Mon-Sat
@@ -85,7 +85,7 @@ class RegistrationRequest(models.Model):
 
 class AttendanceRecord(models.Model):
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE)
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, null=True, blank=True)
+    subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True)
     date = models.DateField()
     time = models.TimeField(null=True, blank=True)   # nullable — absent records have no check-in time
     status = models.CharField(max_length=10, choices=[('present', 'Present'), ('absent', 'Absent')])

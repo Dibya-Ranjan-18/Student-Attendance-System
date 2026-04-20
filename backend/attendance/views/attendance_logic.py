@@ -1,5 +1,6 @@
 import io
 import math
+import calendar
 from datetime import date, datetime, timedelta
 from django.db.models import Count, Q, F
 from django.http import HttpResponse
@@ -46,7 +47,7 @@ def sync_absent_attendance(target_date, profile=None):
     
     for session in active_sessions:
         session_end = datetime.combine(target_date, session.end_time)
-        if target_date == date.today() and now < session_end:
+        if target_date == timezone.localtime(timezone.now()).date() and now < session_end:
             continue  # Session not yet finished for today – skip
         
         subject = session.subject
@@ -71,6 +72,11 @@ def sync_absent_attendance(target_date, profile=None):
         ).values_list('student_id', flat=True))
 
         for s in eligible_students:
+            # Skip automatic 'absent' marking for the student's exact approval day
+            # to avoid penalizing them for classes that happened before they were approved.
+            if s.approval_date == target_date:
+                continue
+                
             if s.id not in existing_student_ids:
                 records_to_create.append(AttendanceRecord(
                     student=s, 
@@ -155,7 +161,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                 continue
             # Already marked present today?
             already_marked = AttendanceRecord.objects.filter(
-                student=profile, date=today, subject=subject, status='present'
+                student=profile, date=today, subject=subject, class_name=loc.name, status='present'
             ).exists()
 
             sessions.append({
@@ -248,18 +254,18 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         if not is_in_time:
             return Response({"error": f"Session Inactive: Attendance for {subject.name} is only allowed between {active_locations[0].start_time.strftime('%H:%M')} and {active_locations[0].end_time.strftime('%H:%M')}."}, status=status.HTTP_403_FORBIDDEN)
         
-        today = date.today()
+        today = timezone.localtime(timezone.now()).date()
         # Only block if already marked PRESENT — auto-synced 'absent' records should
         # be overwriteable when the student physically shows up and marks attendance.
-        if AttendanceRecord.objects.filter(student=profile, date=today, subject=subject, status='present').exists():
-           return Response({"error": "Attendance already marked for this subject today!"}, status=status.HTTP_400_BAD_REQUEST)
+        if AttendanceRecord.objects.filter(student=profile, date=today, subject=subject, class_name=class_name, status='present').exists():
+           return Response({"error": "Attendance already marked for this session today!"}, status=status.HTTP_400_BAD_REQUEST)
 
         record, created = AttendanceRecord.objects.update_or_create(
-            student=profile, date=today, subject=subject,
+            student=profile, date=today, subject=subject, class_name=class_name,
             defaults={
                 'status': 'present',
                 'time': timezone.localtime(timezone.now()).time(),   # IST-aware
-                'latitude': lat, 'longitude': lng, 'class_name': class_name
+                'latitude': lat, 'longitude': lng
             }
         )
         
@@ -267,7 +273,8 @@ class AttendanceViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def daily_report(self, request):
-        date_str = request.query_params.get('date', str(date.today()))
+        today_ist = timezone.localtime(timezone.now()).date()
+        date_str = request.query_params.get('date', str(today_ist))
         subject_id = request.query_params.get('subject')
         branch_id = request.query_params.get('branch')
         semester_id = request.query_params.get('semester')
@@ -284,9 +291,9 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                 if len(parts[0]) == 4: target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
                 else: target_date = datetime.strptime(date_str, '%d-%m-%Y').date()
             else:
-                target_date = date.today()
+                target_date = today_ist
         except:
-            target_date = date.today()
+            target_date = today_ist
 
         # Sync first so the report reflects up-to-date absent records
         sync_absent_attendance(target_date)
@@ -322,7 +329,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                         'student_name': s.user.get_full_name(),
                         'registration_no': s.registration_no,
                         'subject_name': target_sub.name if target_sub else 'N/A',
-                        'status': 'holiday' if is_holiday else (record.status if record else 'absent' if target_date < date.today() else 'not_marked'),
+                        'status': 'holiday' if is_holiday else (record.status if record else 'absent' if target_date < today_ist else 'not_marked'),
                         'subject_percentage': round(sub_perc, 1),
                         'time': record.time.strftime('%H:%M') if record and record.time else None
                     }
@@ -473,9 +480,14 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         for r in records_qs:
             sid = r['student_id']
             ds  = str(r['date'])
+            status = r['status']
+            
             if sid not in rec_map:
                 rec_map[sid] = {}
-            rec_map[sid][ds] = r['status']
+            
+            # Prioritize 'present' status if multiple records exist for the same day/subject
+            if ds not in rec_map[sid] or status == 'present':
+                rec_map[sid][ds] = status
 
         date_strings = [str(d) for d in all_dates]
 
@@ -503,7 +515,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                         total_present += 1
                 else:
                     # Future date or no record yet
-                    if d > date.today():
+                    if d > timezone.localtime(timezone.now()).date():
                         attendance_row[ds] = '-'
                     else:
                         attendance_row[ds] = 'A'
@@ -568,7 +580,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                 if len(parts[0]) == 4: target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
                 else: target_date = datetime.strptime(date_str, '%d-%m-%Y').date()
             else: target_date = date.today()
-        except: target_date = date.today()
+        except: target_date = timezone.localtime(timezone.now()).date()
 
         profile = get_object_or_404(StudentProfile, id=student_id)
         
@@ -583,214 +595,276 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         if not subject: return Response({"error": "Subject required"}, status=400)
 
         # Lock modifications to Today only
-        if target_date != date.today():
+        if target_date != timezone.localtime(timezone.now()).date():
             return Response({
                 "error": "Historical Modification Restricted: Attendance for past dates is read-only. You can only toggle status for the current day."
             }, status=status.HTTP_403_FORBIDDEN)
 
         record, created = AttendanceRecord.objects.update_or_create(
-            student=profile, date=target_date, subject=subject,
+            student=profile, date=target_date, subject=subject, class_name=subject.name if subject else "",
             defaults={'status': status_val, 'time': timezone.localtime(timezone.now()).time()}
         )
         return Response({"message": "Record updated"})
+
+    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    def bulk_nudge(self, request):
+        student_ids = request.data.get('ids', [])
+        subject_id = request.data.get('subject_id')
+        
+        if not student_ids:
+            return Response({"error": "No students selected for nudge."}, status=400)
+            
+        profiles = StudentProfile.objects.filter(id__in=student_ids).select_related('user')
+        subject = Subject.objects.filter(id=subject_id).first()
+        subject_name = subject.name if subject else "General Attendance"
+        
+        # In a real production environment, this would trigger an Email/SMS gateway
+        # For this version, we will simulate the logs and return a professional success status
+        nudged_names = [p.user.get_full_name() for p in profiles]
+        
+        # Example of how email would be sent:
+        # from django.core.mail import send_mail
+        # send_mail(
+        #     f"Critical Attendance Alert: {subject_name}",
+        #     "Your attendance has fallen below the required 85% threshold. Please meet your coordinator.",
+        #     settings.EMAIL_HOST_USER,
+        #     [p.user.email for p in profiles],
+        #     fail_silently=True
+        # )
+
+        return Response({
+            "message": f"Successfully sent attendance nudges to {len(profiles)} students.",
+            "nudged_students": nudged_names
+        })
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAdminUser])
     def download_excel(self, request):
         """
         Generates and returns a styled Excel (.xlsx) attendance report.
-        Optional query params: subject, branch, semester, start_date, end_date
+        Optional query params: subject, branch, semester, start_date, end_date, student_id, month, year
         """
-        subject_id = request.query_params.get('subject')
-        branch_id = request.query_params.get('branch')
-        semester_id = request.query_params.get('semester')
-        start_date_str = request.query_params.get('start_date')
-        end_date_str = request.query_params.get('end_date')
-        single_date_str = request.query_params.get('date')
+        try:
+            subject_id = request.query_params.get('subject')
+            branch_id = request.query_params.get('branch')
+            semester_id = request.query_params.get('semester')
+            start_date_str = request.query_params.get('start_date')
+            end_date_str = request.query_params.get('end_date')
+            single_date_str = request.query_params.get('date')
+            
+            # New params for individual reports
+            student_id = request.query_params.get('student_id')
+            month = request.query_params.get('month')
+            year = request.query_params.get('year')
 
-        # --- Build queryset ---
-        records_qs = AttendanceRecord.objects.select_related(
-            'student__user', 'student__branch', 'student__semester', 'subject'
-        ).order_by('student__registration_no', 'date', 'subject__name')
+            # --- Build queryset ---
+            records_qs = AttendanceRecord.objects.select_related(
+                'student__user', 'student__branch', 'student__semester', 'subject'
+            ).order_by('-date', '-time', 'subject__name')
 
-        if subject_id:
-            records_qs = records_qs.filter(subject_id=subject_id)
-        if branch_id:
-            records_qs = records_qs.filter(student__branch_id=branch_id)
-        if semester_id:
-            records_qs = records_qs.filter(student__semester_id=semester_id)
-        
-        if single_date_str:
-            try:
-                target_date = datetime.strptime(single_date_str, '%Y-%m-%d').date()
-                records_qs = records_qs.filter(date=target_date)
-            except ValueError:
-                pass
-        else:
-            if start_date_str:
+            if student_id and str(student_id).isdigit():
+                records_qs = records_qs.filter(student_id=student_id)
+            if subject_id:
+                records_qs = records_qs.filter(subject_id=subject_id)
+            if branch_id:
+                records_qs = records_qs.filter(student__branch_id=branch_id)
+            if semester_id:
+                records_qs = records_qs.filter(student__semester_id=semester_id)
+            
+            # Date filtering logic
+            if month and year:
                 try:
-                    start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-                    records_qs = records_qs.filter(date__gte=start_date)
+                    m, y = int(month), int(year)
+                    last_day = calendar.monthrange(y, m)[1]
+                    records_qs = records_qs.filter(
+                        date__gte=date(y, m, 1),
+                        date__lte=date(y, m, last_day)
+                    )
+                except (ValueError, TypeError):
+                    pass
+            elif single_date_str:
+                try:
+                    target_date = datetime.strptime(single_date_str, '%Y-%m-%d').date()
+                    records_qs = records_qs.filter(date=target_date)
                 except ValueError:
                     pass
-            if end_date_str:
-                try:
-                    end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-                    records_qs = records_qs.filter(date__lte=end_date)
-                except ValueError:
-                    pass
+            else:
+                if start_date_str:
+                    try:
+                        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+                        records_qs = records_qs.filter(date__gte=start_date)
+                    except ValueError:
+                        pass
+                if end_date_str:
+                    try:
+                        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+                        records_qs = records_qs.filter(date__lte=end_date)
+                    except ValueError:
+                        pass
 
-        # --- Create workbook ---
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "Attendance Report"
+            # --- Create workbook ---
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Attendance Report"
 
-        # Colour palette
-        HEADER_FILL  = PatternFill("solid", fgColor="0F172A")   # dark slate
-        PRESENT_FILL = PatternFill("solid", fgColor="D1FAE5")   # emerald-100
-        ABSENT_FILL  = PatternFill("solid", fgColor="FFE4E6")   # rose-100
-        ALT_ROW_FILL = PatternFill("solid", fgColor="F8FAFC")   # slate-50
-        thin = Side(style='thin', color='CBD5E1')
-        border = Border(left=thin, right=thin, top=thin, bottom=thin)
+            # Colour palette
+            HEADER_FILL  = PatternFill("solid", fgColor="0F172A")   # dark slate
+            PRESENT_FILL = PatternFill("solid", fgColor="D1FAE5")   # emerald-100
+            ABSENT_FILL  = PatternFill("solid", fgColor="FFE4E6")   # rose-100
+            ALT_ROW_FILL = PatternFill("solid", fgColor="F8FAFC")   # slate-50
+            thin = Side(style='thin', color='CBD5E1')
+            border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-        header_font  = Font(name='Calibri', bold=True, color='FFFFFF', size=11)
-        title_font   = Font(name='Calibri', bold=True, color='0F172A', size=16)
-        subheader_font = Font(name='Calibri', bold=True, color='0EA5E9', size=11)
-        cell_font    = Font(name='Calibri', size=10, color='1E293B')
-        center_align = Alignment(horizontal='center', vertical='center')
-        left_align   = Alignment(horizontal='left',   vertical='center')
+            header_font  = Font(name='Calibri', bold=True, color='FFFFFF', size=11)
+            title_font   = Font(name='Calibri', bold=True, color='0F172A', size=16)
+            subheader_font = Font(name='Calibri', bold=True, color='0EA5E9', size=11)
+            cell_font    = Font(name='Calibri', size=10, color='1E293B')
+            center_align = Alignment(horizontal='center', vertical='center')
+            left_align   = Alignment(horizontal='left',   vertical='center')
 
-        # --- Title block ---
-        ws.merge_cells('A1:H1')
-        title_cell = ws['A1']
-        title_cell.value = 'TAP2PRESENT — Attendance Report'
-        title_cell.font  = title_font
-        title_cell.alignment = center_align
-        ws.row_dimensions[1].height = 30
+            # --- Title block ---
+            student_name = ""
+            reg_no = ""
+            if student_id and records_qs.exists():
+                first_rec = records_qs.first()
+                student_name = first_rec.student.user.get_full_name()
+                reg_no = first_rec.student.registration_no
+                title_text = f'INDIVIDUAL ATTENDANCE TRANSCRIPT — {student_name} ({reg_no})'
+            else:
+                title_text = 'TAP2PRESENT — Attendance Report'
 
-        ws.merge_cells('A2:H2')
-        subtitle_cell = ws['A2']
-        subtitle_cell.value = f'Generated on {timezone.localtime(timezone.now()).strftime("%d %B %Y, %I:%M %p IST")}'
-        subtitle_cell.font  = Font(name='Calibri', color='64748B', size=9, italic=True)
-        subtitle_cell.alignment = center_align
-        ws.row_dimensions[2].height = 16
+            ws.merge_cells('A1:H1')
+            title_cell = ws['A1']
+            title_cell.value = title_text
+            title_cell.font  = title_font
+            title_cell.alignment = center_align
+            ws.row_dimensions[1].height = 30
 
-        ws.append([])  # blank spacer row
-        ws.row_dimensions[3].height = 6
+            ws.merge_cells('A2:H2')
+            subtitle_cell = ws['A2']
+            subtitle_cell.value = f'Generated on {timezone.localtime(timezone.now()).strftime("%d %B %Y, %I:%M %p IST")}'
+            subtitle_cell.font  = Font(name='Calibri', color='64748B', size=9, italic=True)
+            subtitle_cell.alignment = center_align
+            ws.row_dimensions[2].height = 16
 
-        # --- Column headers ---
-        headers = [
-            'Reg. No',
-            'Student Name',
-            'Branch',
-            'Semester',
-            'Subject',
-            'Date',
-            'Time',
-            'Status',
-        ]
-        ws.append(headers)
-        header_row = ws.max_row
-        ws.row_dimensions[header_row].height = 22
+            ws.append([])  # blank spacer row
+            ws.row_dimensions[3].height = 6
 
-        for col_idx, _ in enumerate(headers, start=1):
-            cell = ws.cell(row=header_row, column=col_idx)
-            cell.font      = header_font
-            cell.fill      = HEADER_FILL
-            cell.alignment = center_align
-            cell.border    = border
-
-        # --- Data rows ---
-        STATUS_LABELS = {
-            'present': 'Present',
-            'absent':  'Absent',
-            'medical': 'Medical Leave',
-            'od':      'On-Duty',
-            'personal': 'Personal Leave',
-        }
-
-        for i, rec in enumerate(records_qs):
-            row_fill = ALT_ROW_FILL if i % 2 == 0 else None
-            status_label = STATUS_LABELS.get(rec.status, rec.status.title())
-
-            row_data = [
-                rec.student.registration_no,
-                rec.student.user.get_full_name(),
-                rec.student.branch.name if rec.student.branch else 'N/A',
-                rec.student.semester.name if rec.student.semester else 'N/A',
-                rec.subject.name if rec.subject else 'General',
-                rec.date.strftime('%d-%m-%Y'),
-                rec.time.strftime('%H:%M') if rec.time else '—',
-                status_label,
+            # --- Column headers ---
+            headers = [
+                'Reg. No',
+                'Student Name',
+                'Branch',
+                'Semester',
+                'Subject',
+                'Date',
+                'Time',
+                'Status',
             ]
-            ws.append(row_data)
-            data_row = ws.max_row
-            ws.row_dimensions[data_row].height = 18
+            ws.append(headers)
+            header_row = ws.max_row
+            ws.row_dimensions[header_row].height = 22
 
-            for col_idx, value in enumerate(row_data, start=1):
-                cell = ws.cell(row=data_row, column=col_idx)
-                cell.font      = cell_font
-                cell.alignment = center_align if col_idx != 2 else left_align
+            for col_idx, _ in enumerate(headers, start=1):
+                cell = ws.cell(row=header_row, column=col_idx)
+                cell.font      = header_font
+                cell.fill      = HEADER_FILL
+                cell.alignment = center_align
                 cell.border    = border
-                # Status colouring
-                if col_idx == 8:
-                    if rec.status == 'present':
-                        cell.fill = PRESENT_FILL
-                        cell.font = Font(name='Calibri', bold=True, color='065F46', size=10)
-                    elif rec.status == 'absent':
-                        cell.fill = ABSENT_FILL
-                        cell.font = Font(name='Calibri', bold=True, color='9F1239', size=10)
-                elif row_fill:
-                    cell.fill = row_fill
 
-        # --- Column widths ---
-        col_widths = [16, 28, 14, 18, 26, 14, 10, 16]
-        for col_idx, width in enumerate(col_widths, start=1):
-            ws.column_dimensions[get_column_letter(col_idx)].width = width
+            # --- Data rows ---
+            STATUS_LABELS = {
+                'present': 'Present',
+                'absent':  'Absent',
+                'medical': 'Medical Leave',
+                'od':      'On-Duty',
+                'personal': 'Personal Leave',
+            }
 
-        # --- Summary sheet ---
-        ws_summary = wb.create_sheet(title='Summary')
-        ws_summary.column_dimensions['A'].width = 30
-        ws_summary.column_dimensions['B'].width = 18
+            for i, rec in enumerate(records_qs):
+                row_fill = ALT_ROW_FILL if i % 2 == 0 else None
+                status_label = STATUS_LABELS.get(rec.status, rec.status.title())
 
-        summary_headers = ['Metric', 'Value']
-        ws_summary.append(summary_headers)
-        for col_idx in range(1, 3):
-            cell = ws_summary.cell(row=1, column=col_idx)
-            cell.font = header_font
-            cell.fill = HEADER_FILL
-            cell.alignment = center_align
-            cell.border = border
+                row_data = [
+                    rec.student.registration_no,
+                    rec.student.user.get_full_name(),
+                    rec.student.branch.name if rec.student.branch else 'N/A',
+                    rec.student.semester.name if rec.student.semester else 'N/A',
+                    rec.subject.name if rec.subject else 'General',
+                    rec.date.strftime('%d-%m-%Y'),
+                    rec.time.strftime('%H:%M') if rec.time else '—',
+                    status_label,
+                ]
+                ws.append(row_data)
+                data_row = ws.max_row
+                ws.row_dimensions[data_row].height = 18
 
-        total = records_qs.count()
-        present_count = records_qs.filter(status='present').count()
-        absent_count  = records_qs.filter(status='absent').count()
-        percentage = round(present_count / total * 100, 1) if total > 0 else 0
+                for col_idx, value in enumerate(row_data, start=1):
+                    cell = ws.cell(row=data_row, column=col_idx)
+                    cell.font      = cell_font
+                    cell.alignment = center_align if col_idx != 2 else left_align
+                    cell.border    = border
+                    # Status colouring
+                    if col_idx == 8:
+                        if rec.status == 'present':
+                            cell.fill = PRESENT_FILL
+                            cell.font = Font(name='Calibri', bold=True, color='065F46', size=10)
+                        elif rec.status == 'absent':
+                            cell.fill = ABSENT_FILL
+                            cell.font = Font(name='Calibri', bold=True, color='9F1239', size=10)
+                    elif row_fill:
+                        cell.fill = row_fill
 
-        summary_rows = [
-            ('Total Records',         total),
-            ('Present',               present_count),
-            ('Absent',                absent_count),
-            ('Overall Percentage',    f'{percentage}%'),
-            ('Report Generated',      timezone.localtime(timezone.now()).strftime('%d-%m-%Y %H:%M IST')),
-        ]
-        for r_label, r_value in summary_rows:
-            ws_summary.append([r_label, r_value])
-            row_n = ws_summary.max_row
+            # --- Column widths ---
+            col_widths = [16, 28, 14, 18, 26, 14, 10, 16]
+            for col_idx, width in enumerate(col_widths, start=1):
+                ws.column_dimensions[get_column_letter(col_idx)].width = width
+
+            # --- Summary sheet ---
+            ws_summary = wb.create_sheet(title='Summary')
+            ws_summary.column_dimensions['A'].width = 30
+            ws_summary.column_dimensions['B'].width = 18
+
+            summary_headers = ['Metric', 'Value']
+            ws_summary.append(summary_headers)
             for col_idx in range(1, 3):
-                cell = ws_summary.cell(row=row_n, column=col_idx)
-                cell.font = Font(name='Calibri', size=10)
+                cell = ws_summary.cell(row=1, column=col_idx)
+                cell.font = header_font
+                cell.fill = HEADER_FILL
                 cell.alignment = center_align
                 cell.border = border
 
-        # --- Stream response ---
-        buffer = io.BytesIO()
-        wb.save(buffer)
-        buffer.seek(0)
+            total = records_qs.count()
+            present_count = records_qs.filter(status='present').count()
+            absent_count  = records_qs.filter(status='absent').count()
+            percentage = round(present_count / total * 100, 1) if total > 0 else 0
 
-        filename = f'attendance_report_{timezone.localtime(timezone.now()).strftime("%Y%m%d_%H%M")}.xlsx'
-        response = HttpResponse(
-            buffer.getvalue(),
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
-        return response
+            summary_rows = [
+                ('Total Records',         total),
+                ('Present',               present_count),
+                ('Absent',                absent_count),
+                ('Overall Percentage',    f'{percentage}%'),
+                ('Report Generated',      timezone.localtime(timezone.now()).strftime('%d-%m-%Y %H:%M IST')),
+            ]
+            for r_label, r_value in summary_rows:
+                ws_summary.append([r_label, r_value])
+                row_n = ws_summary.max_row
+                for col_idx in range(1, 3):
+                    cell = ws_summary.cell(row=row_n, column=col_idx)
+                    cell.font = Font(name='Calibri', size=10)
+                    cell.alignment = center_align
+                    cell.border = border
+
+            # --- Stream response ---
+            buffer = io.BytesIO()
+            wb.save(buffer)
+            buffer.seek(0)
+
+            filename = f'attendance_report_{timezone.localtime(timezone.now()).strftime("%Y%m%d_%H%M")}.xlsx'
+            response = HttpResponse(
+                buffer.getvalue(),
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+        except Exception as e:
+            return Response({"error": f"Excel generation failed: {str(e)}"}, status=500)

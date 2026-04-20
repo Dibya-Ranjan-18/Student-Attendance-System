@@ -1,5 +1,6 @@
 import random
 import string
+from django.utils import timezone
 from datetime import datetime
 from django.conf import settings
 from django.core.mail import send_mail
@@ -21,6 +22,12 @@ from ..serializers import (
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
 def register_student(request):
+    data = request.data.copy()
+    data.pop('registration_no', None)
+    data.pop('email', None)
+    data.pop('is_approved', None)
+    data.pop('approval_date', None)
+    
     reg_no = request.data.get('registration_no')
     email = request.data.get('email')
     

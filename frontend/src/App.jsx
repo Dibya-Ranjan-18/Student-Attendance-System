@@ -26,6 +26,29 @@ const ProtectedRoute = ({ children, allowedRole }) => {
   return children;
 };
 
+const PublicRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  const { setIsLoading } = useLoading();
+
+  React.useEffect(() => {
+    setIsLoading(loading);
+  }, [loading, setIsLoading]);
+
+  if (loading) return null;
+  if (user) {
+    return <Navigate to={user.role === 'admin' ? '/admin' : '/student'} />;
+  }
+  
+  return children;
+};
+
+const RootRedirect = () => {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" />;
+  return <Navigate to={user.role === 'admin' ? '/admin' : '/student'} />;
+};
+
 function App() {
   return (
     <Router>
@@ -56,9 +79,36 @@ const AppContent = () => {
       
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
-          <Route path="/login" element={<PageWrapper><Login /></PageWrapper>} />
-          <Route path="/register" element={<PageWrapper><Register /></PageWrapper>} />
-          <Route path="/forgot-password" element={<PageWrapper><ForgotPassword /></PageWrapper>} />
+          <Route 
+            path="/login" 
+            element={
+              <PublicRoute>
+                <PageWrapper>
+                  <Login />
+                </PageWrapper>
+              </PublicRoute>
+            } 
+          />
+          <Route 
+            path="/register" 
+            element={
+              <PublicRoute>
+                <PageWrapper>
+                  <Register />
+                </PageWrapper>
+              </PublicRoute>
+            } 
+          />
+          <Route 
+            path="/forgot-password" 
+            element={
+              <PublicRoute>
+                <PageWrapper>
+                  <ForgotPassword />
+                </PageWrapper>
+              </PublicRoute>
+            } 
+          />
           
           <Route 
             path="/admin/*" 
@@ -82,7 +132,7 @@ const AppContent = () => {
             } 
           />
           
-          <Route path="/" element={<Navigate to="/login" />} />
+          <Route path="/" element={<RootRedirect />} />
         </Routes>
       </AnimatePresence>
     </>

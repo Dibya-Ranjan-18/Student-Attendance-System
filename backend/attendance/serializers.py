@@ -55,7 +55,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             'branch', 'branch_name', 'semester', 'semester_name', 
             'is_approved', 'approval_date', 'streak_count', 'badges'
         ]
-        read_only_fields = ['user']
+        read_only_fields = ['user', 'is_approved', 'approval_date', 'registration_no']
 
     def get_streak_count(self, obj):
         try:
